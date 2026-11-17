@@ -21,6 +21,7 @@ packages = ["harness", "harness.lang"]
 
 [tool.setuptools.package-data]
 harness = ["templates/*.md", "skeleton/*"]
+"harness.lang" = ["ts_helper.cjs"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

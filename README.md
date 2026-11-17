@@ -15,7 +15,8 @@ implementation. Tests written by the planner decide whether an answer is accepte
 
 ## Quick start
 
-Requirements: Python 3.11+, PyYAML, pytest.
+Requirements: Python 3.11+, PyYAML, pytest. TypeScript targets also need Node.js and the
+`typescript` package.
 
 ```bash
 # Demo with scripted model replies; no model server needed; takes a few seconds
@@ -48,6 +49,8 @@ Everything else is in [`docs/`](docs/README.md):
 ```
 harness/            the orchestrator (Python package; `python -m harness`)
 examples/textstats/ a complete example project: spec, tests, mock replies, run configs
+projects/           spec bundles for real targets, independent of the harness
+  amazon-mvp/       github.com/Alles725/amazon (TypeScript: NestJS, Next.js, Prisma)
 tests/              the harness's own test suite (`python -m pytest`)
 docs/               documentation
 ```
