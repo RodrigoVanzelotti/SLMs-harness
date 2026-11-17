@@ -25,7 +25,8 @@ TEMPLATE_NAMES = ("system", "implement", "integrate", "fix")
 MESSAGE_OVERHEAD_TOKENS = 8  # chat-template tokens around each message
 _FENCES = {
     ".py": "python", ".json": "json", ".yaml": "yaml", ".yml": "yaml", ".toml": "toml",
-    ".md": "markdown", ".sh": "bash", ".js": "javascript", ".ts": "typescript",
+    ".md": "markdown", ".sh": "bash", ".js": "javascript", ".ts": "typescript", ".tsx": "tsx",
+    ".mjs": "javascript", ".cjs": "javascript", ".prisma": "prisma",
     ".html": "html", ".css": "css", ".sql": "sql", ".ini": "ini", ".cfg": "ini",
 }
 
@@ -77,7 +78,10 @@ class PromptBuilder:
             task = f"Write the complete contents of the file `{unit.target_file}`."
             output_rule = f"exactly one ```{fence} code block containing the complete file"
         else:
-            intro = "Write this class, with every method shown:" if unit.kind == "class" else "Write this function:"
+            intro = {
+                "class": "Write this class, with every method shown:",
+                "declaration": "Write this declaration, with the value described below:",
+            }.get(unit.kind, "Write this function:")
             task = f"{intro}\n```{fence}\n{(unit.signature or '').strip()}\n```"
             output_rule = (
                 f"exactly one ```{fence} code block containing `{unit.target_name}` "
@@ -167,6 +171,7 @@ class PromptBuilder:
         return "\n".join(sections) or "(none)"
 
     def _allowed_imports(self) -> str:
-        parts = (["the standard library"] if self.project.allow_stdlib else []) + list(self.project.allowed_imports)
+        stdlib = getattr(self.adapter, "stdlib_name", "the standard library")
+        parts = ([stdlib] if self.project.allow_stdlib else []) + list(self.project.allowed_imports)
         parts.append("this project's own modules")
         return ", ".join(parts)

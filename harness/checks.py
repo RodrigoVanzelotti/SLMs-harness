@@ -188,6 +188,14 @@ class Checker:
     def run_tests(self, tests: Sequence[Path]) -> tuple[bool, str]:
         return self.run_command(self.config.checks.tests, tests=tests)
 
+    def preflight(self) -> tuple[bool, str, str]:
+        """Run checks.preflight in order. Returns (ok, name of the failed command, its output)."""
+        for check in self.config.checks.preflight:
+            ok, output = self.run_command(check)
+            if not ok:
+                return False, check.name, output
+        return True, "", ""
+
     def import_check(self) -> tuple[bool, str]:
         """Import every module of the workspace once, so a broken scaffold is caught before any model call.
 
@@ -226,7 +234,7 @@ class Checker:
         names: set[str] = set()
         for other in self.project.files[unit.target_file]:
             if other.id != unit.id:
-                names |= self.adapter.defined_names(self.workspace.read_region(other) or "")
+                names |= self.adapter.defined_names(self.workspace.read_region(other) or "", other.target_file)
         return names
 
     def static_checks(self, unit: Unit, reply: str, finish_reason: str | None = None) -> Verdict:
@@ -249,7 +257,8 @@ class Checker:
         except UnicodeEncodeError:
             return fail("syntax", "Your code contains characters that cannot be saved as UTF-8.")
         is_source = Path(unit.target_file).suffix.lower() in self.adapter.source_suffixes
-        problem = self.adapter.syntax_error(code) if is_source else data_syntax_error(unit.target_file, code)
+        problem = (self.adapter.syntax_error(code, unit.target_file) if is_source
+                   else data_syntax_error(unit.target_file, code))
         if problem:
             return fail("syntax", problem, code)
 
@@ -262,7 +271,7 @@ class Checker:
             if errors:
                 return fail("signature", "\n".join(errors), code, repairs, notes)
             clash = sorted(
-                n for n in self.adapter.defined_names(code) & self.other_names(unit)
+                n for n in self.adapter.defined_names(code, unit.target_file) & self.other_names(unit)
                 if not (n.startswith("__") and n.endswith("__"))
             )
             if clash:
@@ -274,7 +283,8 @@ class Checker:
                     code, repairs, notes,
                 )
         if is_source:
-            errors = self.adapter.import_errors(code, self.project.allow_stdlib, self.allowed, self.internal)
+            errors = self.adapter.import_errors(code, self.project.allow_stdlib, self.allowed, self.internal,
+                                                path=unit.target_file)
             if errors:
                 return fail("imports", "\n".join(errors), code, repairs, notes)
         return Verdict(True, "imports", self.rank("imports"), code, "", list(notes), list(repairs),

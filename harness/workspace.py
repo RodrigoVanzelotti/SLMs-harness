@@ -13,6 +13,10 @@ Source files are assembled from regions between marker comments:
 
 The SLM only ever produces the text of one region; the harness splices it in.
 Units of kind "file" own their whole file instead.
+
+With `tests_in_workspace`, the project's tests/ tree is copied into the workspace
+(`tests/apps/web/x.test.ts` -> `apps/web/x.test.ts`), for test runners that resolve
+imports relative to the test file.
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ import json
 import re
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from . import dag
 from .errors import HarnessError, SpecError
@@ -60,6 +64,29 @@ class Workspace:
 
     def path(self, rel: str) -> Path:
         return safe_path(self.root, rel)
+
+    def test_path(self, rel: str) -> Path:
+        """Where a test path (relative to the project) is run from."""
+        mapped = self.project.workspace_test_path(rel)
+        return self.path(mapped) if mapped is not None else self.project.root / rel
+
+    def restore_tests(self, paths: Sequence[Path]) -> None:
+        """Copy test files into the workspace again, in case code under test changed them."""
+        if not self.project.tests_in_workspace:
+            return
+        root = self.root.resolve()
+        for path in paths:
+            try:
+                rel = Path(path).resolve().relative_to(root)
+            except ValueError:
+                continue
+            source = self.project.tests_dir / rel
+            files = [p for p in source.rglob("*") if p.is_file()] if source.is_dir() else [source]
+            for file in files:
+                if file.is_file():
+                    target = self.path((rel / file.relative_to(source)).as_posix() if source.is_dir() else rel.as_posix())
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(file, target)
 
     def _marker(self, direction: str, key: str) -> str:
         label = HEADER if key == HEADER else f"unit: {key}"
@@ -164,6 +191,15 @@ class Workspace:
             for source in sorted(scaffold_dir.rglob("*")):
                 if source.is_file():
                     rel = source.relative_to(scaffold_dir).as_posix()
+                    target = self.path(rel)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(source, target)
+                    produced.append(rel)
+        tests_dir = self.project.tests_dir
+        if self.project.tests_in_workspace and tests_dir.is_dir():
+            for source in sorted(tests_dir.rglob("*")):
+                if source.is_file():
+                    rel = source.relative_to(tests_dir).as_posix()
                     target = self.path(rel)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copyfile(source, target)

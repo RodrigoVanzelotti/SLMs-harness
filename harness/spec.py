@@ -1,6 +1,7 @@
 """Loads the planner's spec bundle: project.yaml, conventions, and contracts.
 
-A unit is one black box: a function, a class, or a whole file. Its contract
+A unit is one black box: a function, a class, another top-level declaration
+(a constant, type, or interface), or a whole file. Its contract
 (signature, description, examples, tests) is all that other units, and the
 SLM working on them, ever see of it.
 """
@@ -22,7 +23,7 @@ from .errors import SpecError
 from .lang import get_adapter
 from .names import name_problem
 
-KINDS = ("function", "class", "file")
+KINDS = ("function", "class", "declaration", "file")
 TYPES = ("implement", "integrate", "provided")
 _UNIT_KEYS = {
     "id", "type", "kind", "target", "signature", "description", "uses", "after",
@@ -30,9 +31,9 @@ _UNIT_KEYS = {
 }
 _PROJECT_KEYS = {
     "name", "language", "digest", "conventions", "allowed_imports", "allow_stdlib",
-    "source_roots", "auto_init", "packages", "milestones",
+    "source_roots", "auto_init", "packages", "milestones", "tests_in_workspace",
 }
-_MILESTONE_KEYS = {"id", "after", "tests", "description"}
+_MILESTONE_KEYS = {"id", "after", "tests", "description", "requires_env"}
 
 
 @dataclass
@@ -75,6 +76,7 @@ class Milestone:
     after: list[str]
     tests: list[str]
     description: str = ""
+    requires_env: list[str] = field(default_factory=list)  # check variables it needs, e.g. DATABASE_URL
 
 
 @dataclass
@@ -91,6 +93,7 @@ class Project:
     packages: list[str]
     units: dict[str, Unit]
     milestones: dict[str, Milestone]
+    tests_in_workspace: bool = False  # copy tests/<path> to <workspace>/<path> and run them there
 
     @property
     def spec_dir(self) -> Path:
@@ -103,6 +106,17 @@ class Project:
     @property
     def prompts_dir(self) -> Path:
         return self.root / "prompts" / "templates"
+
+    @property
+    def tests_dir(self) -> Path:
+        return self.root / "tests"
+
+    def workspace_test_path(self, rel: str) -> str | None:
+        """Where a test file lives in the workspace when tests_in_workspace is on (`tests/a/b` -> `a/b`)."""
+        parts = rel.split("/", 1)
+        if not self.tests_in_workspace or len(parts) < 2 or parts[0] != "tests":
+            return None
+        return parts[1]
 
     @cached_property
     def files(self) -> dict[str, list[Unit]]:
@@ -154,7 +168,7 @@ def load_project(root: Path) -> Project:
         raise SpecError(f"{project_file} must be a mapping.")
     _reject_unknown(raw, _PROJECT_KEYS, "spec/project.yaml")
     language = str(raw.get("language") or "python")
-    adapter = get_adapter(language)
+    adapter = get_adapter(language, root)
 
     conventions = ""
     conventions_name = raw.get("conventions")
@@ -200,6 +214,7 @@ def load_project(root: Path) -> Project:
             after=_str_list(item, "after", where),
             tests=[_normalize_path(t) for t in _str_list(item, "tests", where)],
             description=str(item.get("description") or ""),
+            requires_env=_str_list(item, "requires_env", where),
         )
 
     where = "spec/project.yaml"
@@ -218,6 +233,7 @@ def load_project(root: Path) -> Project:
         packages=packages,
         units=units,
         milestones=milestones,
+        tests_in_workspace=_bool(raw, "tests_in_workspace", False, where),
     )
 
 
@@ -255,7 +271,7 @@ def _parse_unit(item: Any, where: str, adapter) -> Unit:
         elif signature:
             kind = adapter.infer_kind(signature, where)
         else:
-            raise SpecError(f"{where}: function and class units need a `signature`.")
+            raise SpecError(f"{where}: function, class and declaration units need a `signature`.")
     if kind not in KINDS:
         raise SpecError(f"{where}: kind must be one of {', '.join(KINDS)}.")
     if kind == "file" and target_name:

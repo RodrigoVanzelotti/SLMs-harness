@@ -93,6 +93,9 @@ class ChecksConfig:
     sanitize: bool = True  # deterministic repairs of model output before the signature check
     strict_annotations: bool = False
     commands: list[CommandCheck] = field(default_factory=list)
+    # Run once by `run`, after the workspace is built and before the first model call
+    # (for example: install dependencies, generate code, load every module). A failure stops the run.
+    preflight: list[CommandCheck] = field(default_factory=list)
     tests: CommandCheck = field(
         default_factory=lambda: CommandCheck("tests", list(DEFAULT_TEST_COMMAND))
     )
@@ -195,9 +198,14 @@ def load_config(path: Path) -> Config:
     commands_raw = checks_raw.pop("commands", None) or []
     if not isinstance(commands_raw, list):
         raise ConfigError("checks.commands must be a list.")
+    preflight_raw = checks_raw.pop("preflight", None) or []
+    if not isinstance(preflight_raw, list):
+        raise ConfigError("checks.preflight must be a list.")
     tests_raw = checks_raw.pop("tests", None)
     checks = _section(ChecksConfig, checks_raw, "checks")
     checks.commands = [_command(item, f"checks.commands[{i}]") for i, item in enumerate(commands_raw)]
+    checks.preflight = [_command(item, f"checks.preflight[{i}]", default_name=f"preflight-{i + 1}")
+                        for i, item in enumerate(preflight_raw)]
     if tests_raw is not None:
         checks.tests = _command(tests_raw, "checks.tests", default_name="tests")
 
@@ -239,7 +247,7 @@ def _check_values(config: Config) -> None:
         problems.append("run.sampling must be `lazy` or `parallel`.")
     if config.run.regression not in ("related", "same_file", "none"):
         problems.append("run.regression must be `related`, `same_file`, or `none`.")
-    if any(check.timeout_s <= 0 for check in [*config.checks.commands, config.checks.tests]):
+    if any(check.timeout_s <= 0 for check in [*config.checks.commands, *config.checks.preflight, config.checks.tests]):
         problems.append("check timeouts must be positive.")
     names = [check.name for check in config.checks.commands]
     builtin = {"extract", "syntax", "signature", "names", "imports", "tests"}

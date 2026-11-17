@@ -80,6 +80,7 @@ class Orchestrator:
         self.client: Client | None = None
         self._active: tuple[Unit, str, str] | None = None  # (unit, fallback content, mode)
         self._reverify: list[str] = []  # finished units whose tests changed; filled by sync()
+        self._env_noted: set[str] = set()  # milestones already reported as missing an environment variable
 
     # -- setup
 
@@ -187,7 +188,8 @@ class Orchestrator:
             unit = self.project.units[uid]
             if self.state.status(uid) != "done":
                 continue
-            tests = [self.project.root / t for t in unit.tests]  # its own tests only
+            tests = [self.workspace.test_path(t) for t in unit.tests]  # its own tests only
+            self.workspace.restore_tests(tests)
             ok, _ = self.checker.run_tests(tests) if tests else (True, "")
             self.state.log("unit_reverified", unit=uid, ok=ok)
             if ok:
@@ -275,13 +277,25 @@ class Orchestrator:
         return 1 if counts["escalated"] or counts["blocked"] or failed_milestones or not_built else 0
 
     def require_importable(self) -> None:
-        """Stop before any model call if the scaffolded workspace cannot even be imported."""
+        """Stop before any model call if the scaffolded workspace cannot even be imported.
+
+        Runs the Python import check (when it applies), then every checks.preflight command.
+        """
         ok, output = self.checker.import_check()
         if not ok:
             raise SpecError(
                 "The scaffolded workspace cannot be imported, so every test would fail. Common causes: a "
                 "circular import between modules, a missing `imports` line, a broken provided unit, or a "
                 f"third-party package that is not installed.\n{self.checker.trim(output)}"
+            )
+        if self.config.checks.preflight:
+            self.echo(f"Running {len(self.config.checks.preflight)} preflight command(s)")
+        ok, name, output = self.checker.preflight()
+        self.state.log("preflight", ok=ok, failed=name or None)
+        if not ok:
+            raise HarnessError(
+                f"The preflight command `{name}` failed, so the run stopped before any model call.\n"
+                f"{self.checker.trim(output)}"
             )
 
     def process_unit(self, unit: Unit, *, mode: str = "implement", extra_tests: Sequence[str] = (),
@@ -379,6 +393,7 @@ class Orchestrator:
         if not verdict.ok:
             return verdict
         self.workspace.write_region(unit, verdict.code or "")
+        self.workspace.restore_tests(tests)
         passed = False
         try:
             verdict = self.checker.dynamic_checks(unit, verdict, tests)
@@ -515,7 +530,7 @@ class Orchestrator:
         for rel in rels:
             if rel not in seen:
                 seen.append(rel)
-        return [self.project.root / rel for rel in seen]
+        return [self.workspace.test_path(rel) for rel in seen]
 
     # -- milestones
 
@@ -526,14 +541,31 @@ class Orchestrator:
             for uid in dag.closure(self.project.units, milestone.after)
         )
 
+    def missing_env(self, milestone: Milestone) -> list[str]:
+        """Variables the milestone needs (requires_env) that the check environment does not have."""
+        if not milestone.requires_env:
+            return []
+        env = {key.upper() for key, value in self.checker.env().items() if value}
+        return [name for name in milestone.requires_env if name.upper() not in env]
+
     def check_milestones(self) -> None:
         for milestone in self.project.milestones.values():
-            if self.state.milestone(milestone.id)["status"] == "pending" and self._milestone_ready(milestone):
-                self._run_milestone(milestone)
+            if self.state.milestone(milestone.id)["status"] != "pending" or not self._milestone_ready(milestone):
+                continue
+            missing = self.missing_env(milestone)
+            if missing:
+                if milestone.id not in self._env_noted:
+                    self._env_noted.add(milestone.id)
+                    self.state.log("milestone_skipped", milestone=milestone.id, missing_env=missing)
+                    self.echo(f"[milestone {milestone.id}] not run: it needs {', '.join(missing)}, "
+                              "which the check environment does not have")
+                continue
+            self._run_milestone(milestone)
 
     def _run_milestone(self, milestone: Milestone) -> None:
-        tests = [self.project.root / t for t in milestone.tests]
+        tests = [self.workspace.test_path(t) for t in milestone.tests]
         while True:
+            self.workspace.restore_tests(tests)
             ok, output = self.checker.run_tests(tests)
             self.state.log("milestone", milestone=milestone.id, ok=ok)
             if ok:

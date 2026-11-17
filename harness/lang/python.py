@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 FUTURE_ANNOTATIONS = "from __future__ import annotations"
 DEF_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 FUNC_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef)
+_VALUE_TYPES = (ast.Assign, ast.AnnAssign, ast.TypeAlias)
 _TRACE_RES = (
     re.compile(r'^\s*File "(?P<path>[^"]+)", line (?P<line>\d+)'),  # standard / --tb=native
     re.compile(r"^(?P<path>(?:[A-Za-z]:)?[^:\s][^:]*?\.py):(?P<line>\d+):"),  # pytest --tb=short
@@ -202,11 +203,19 @@ class PythonAdapter:
         return self._signature_node(unit.signature or "", unit.id, unit.target_name)
 
     def infer_kind(self, signature: str, where: str) -> str:
+        try:
+            module = _parse_snippet(signature)
+        except SyntaxError:
+            module = None
+        if module is not None and len(module.body) == 1 and isinstance(module.body[0], _VALUE_TYPES):
+            return "declaration"
         node = self._signature_node(signature, where)
         return "class" if isinstance(node, ast.ClassDef) else "function"
 
     def check_contract(self, unit: Unit) -> list[str]:
         errors: list[str] = []
+        if unit.kind == "declaration" and unit.type != "provided":
+            errors.append(f"{unit.id}: Python `declaration` units (constants, type aliases) must be `provided`.")
         if unit.kind in ("function", "class"):
             try:
                 node = self._expected(unit)
@@ -236,7 +245,9 @@ class PythonAdapter:
         return errors
 
     def definition_pattern(self, name: str) -> re.Pattern[str]:
-        return re.compile(rf"^\s*(?:async\s+def|def|class)\s+{re.escape(name)}\b", re.M)
+        return re.compile(
+            rf"^(?:\s*(?:async\s+def|def|class|type)\s+{re.escape(name)}\b|{re.escape(name)}\s*[:=])", re.M
+        )
 
     # -- files
 
@@ -334,7 +345,7 @@ class PythonAdapter:
 
     # -- checks on a candidate
 
-    def syntax_error(self, code: str) -> str | None:
+    def syntax_error(self, code: str, path: str = "") -> str | None:
         try:
             compile(code, "<answer>", "exec", dont_inherit=True)
         except SyntaxError as exc:
@@ -415,7 +426,7 @@ class PythonAdapter:
             errors, more = _compare_functions(expected, actual, unit.target_name or "", strict)
         return errors, warnings + more
 
-    def defined_names(self, code: str) -> set[str]:
+    def defined_names(self, code: str, path: str = "") -> set[str]:
         """Top-level names a piece of code binds (functions, classes, variables; not imports)."""
         try:
             tree = ast.parse(code)
@@ -425,11 +436,14 @@ class PythonAdapter:
         for node in tree.body:
             if isinstance(node, DEF_TYPES):
                 names.add(node.name)
+            elif isinstance(node, ast.TypeAlias) and isinstance(node.name, ast.Name):
+                names.add(node.name.id)
             else:
                 names |= _assigned_names(node)
         return names
 
-    def import_errors(self, code: str, allow_stdlib: bool, allowed: set[str], internal: set[str]) -> list[str]:
+    def import_errors(self, code: str, allow_stdlib: bool, allowed: set[str], internal: set[str],
+                      path: str = "") -> list[str]:
         bad: list[str] = []
         for node in ast.walk(ast.parse(code)):
             if isinstance(node, ast.Import):
