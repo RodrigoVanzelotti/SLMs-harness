@@ -1,0 +1,16 @@
+# Written by the planner. Describes the project being rebuilt.
+name: __NAME__
+language: python
+digest: >-
+  One or two sentences about what the project does. Included in every prompt, so keep it short.
+conventions: conventions.md    # relative to spec/; included in every prompt (keep it under ~200 tokens)
+allow_stdlib: true
+allowed_imports: []            # third-party top-level modules the code may import
+source_roots: [src]            # where packages live inside the workspace
+auto_init: true                # create missing __init__.py files
+
+# Integration tests that run once all listed units are done.
+milestones: []
+#  - id: m1_cli
+#    after: [cli.main]
+#    tests: [tests/integration/test_cli.py]

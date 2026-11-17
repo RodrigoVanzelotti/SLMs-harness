@@ -1,0 +1,37 @@
+units:
+  - id: tokenize.normalize
+    target: src/textstats/tokenize.py::normalize
+    signature: "def normalize(text: str) -> str"
+    description: |
+      Return the text in lowercase, with every character that is not a letter, a digit,
+      or an apostrophe replaced by a space.
+    examples:
+      - 'normalize("Hello, World!") == "hello  world "'
+    tests: [tests/unit/test_normalize.py]
+
+  - id: tokenize.tokenize
+    target: src/textstats/tokenize.py::tokenize
+    signature: "def tokenize(text: str) -> list[str]"
+    uses: [tokenize.normalize]
+    description: |
+      Split text into words. Normalize the text with normalize(), split it on whitespace,
+      strip leading and trailing apostrophes from each word, and drop words that become empty.
+    examples:
+      - |-
+        tokenize("It's a 'test', isn't it?") == ["it's", "a", "test", "isn't", "it"]
+    tests: [tests/unit/test_tokenize.py]
+
+  - id: tokenize.StopWordFilter
+    target: src/textstats/tokenize.py::StopWordFilter
+    signature: |
+      class StopWordFilter:
+          def __init__(self, stop_words: Iterable[str]) -> None: ...
+          def filter(self, words: list[str]) -> list[str]: ...
+    imports:
+      - from collections.abc import Iterable
+    description: |
+      Removes stop words from a list of words, ignoring case.
+      filter() keeps the original order and spelling of the words it keeps.
+    examples:
+      - 'StopWordFilter(["The"]).filter(["the", "Cat"]) == ["Cat"]'
+    tests: [tests/unit/test_stopwords.py]

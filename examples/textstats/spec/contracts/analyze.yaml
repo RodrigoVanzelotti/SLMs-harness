@@ -1,0 +1,25 @@
+units:
+  - id: analyze.word_frequencies
+    target: src/textstats/analyze.py::word_frequencies
+    signature: "def word_frequencies(words: list[str]) -> dict[str, int]"
+    description: Count how many times each word appears. Words are compared exactly (case-sensitive).
+    examples:
+      - 'word_frequencies(["a", "b", "a"]) == {"a": 2, "b": 1}'
+    tests: [tests/unit/test_word_frequencies.py]
+
+  - id: analyze.compute_stats
+    target: src/textstats/analyze.py::compute_stats
+    signature: "def compute_stats(text: str, top_n: int = 3, stop_words: Iterable[str] = ()) -> Stats"
+    uses: [tokenize.tokenize, tokenize.StopWordFilter, analyze.word_frequencies, models.Stats]
+    imports:
+      - from collections.abc import Iterable
+      - from textstats.models import Stats
+      - from textstats.tokenize import StopWordFilter, tokenize
+    description: |
+      Tokenize the text, remove stop words with StopWordFilter, then count word frequencies.
+      total_words is the number of words left after filtering; unique_words is the number of distinct words.
+      top_words holds the top_n most frequent words as (word, count) pairs, sorted by count
+      (highest first) and then alphabetically when counts are equal.
+    examples:
+      - 'compute_stats("b a b c", top_n=2) == Stats(total_words=4, unique_words=3, top_words=[("b", 2), ("a", 1)])'
+    tests: [tests/unit/test_compute_stats.py]

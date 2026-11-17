@@ -1,0 +1,30 @@
+units:
+  - id: cli.main
+    type: integrate
+    target: src/textstats/cli.py::main
+    signature: "def main(argv: list[str] | None = None) -> int"
+    uses: [analyze.compute_stats, models.Stats]
+    imports:
+      - import argparse
+      - import json
+      - import sys
+      - from pathlib import Path
+      - from textstats.analyze import compute_stats
+    description: |
+      Command-line entry point: textstats FILE [--top N] [--stop-words WORD ...].
+      argv is the argument list without the program name (None means sys.argv[1:]).
+      Read FILE as UTF-8, call compute_stats with top_n=N (default 3) and the stop words,
+      and print one JSON object to stdout with the keys "total_words", "unique_words",
+      and "top_words" (a list of [word, count] pairs). Return 0.
+      If FILE does not exist, print "error: file not found: FILE" to stderr and return 1.
+    tests: [tests/unit/test_cli_main.py]
+
+  - id: cli.entry_point
+    target: src/textstats/__main__.py
+    description: Lets the package run with `python -m textstats`.
+    code: |
+      import sys
+
+      from textstats.cli import main
+
+      sys.exit(main())

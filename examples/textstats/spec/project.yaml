@@ -1,0 +1,14 @@
+name: textstats
+language: python
+digest: >-
+  textstats is a small command-line tool that reads a text file and prints word statistics as JSON.
+conventions: conventions.md
+allow_stdlib: true
+allowed_imports: []
+source_roots: [src]
+
+milestones:
+  - id: m1_cli
+    description: The package runs end to end with `python -m textstats`.
+    after: [cli.main, cli.entry_point]
+    tests: [tests/integration/test_cli.py]

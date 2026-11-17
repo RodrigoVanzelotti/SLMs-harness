@@ -1,0 +1,18 @@
+units:
+  - id: models.Stats
+    target: src/textstats/models.py::Stats
+    description: Word statistics for one text.
+    signature: |
+      @dataclass
+      class Stats:
+          total_words: int
+          unique_words: int
+          top_words: list[tuple[str, int]]
+    imports:
+      - from dataclasses import dataclass
+    code: |
+      @dataclass
+      class Stats:
+          total_words: int
+          unique_words: int
+          top_words: list[tuple[str, int]]

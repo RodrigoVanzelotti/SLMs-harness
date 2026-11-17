@@ -1,0 +1,53 @@
+# Run configuration: how the harness runs. The spec (what to build) lives in spec/.
+# Keep one file per model you want to compare, e.g. harness.qwen-3b.yaml, and pass it with -c.
+
+run_name: default              # state and workspace go to runs/<run_name>/
+
+model:
+  backend: openai              # openai = any OpenAI-compatible server; mock = scripted replies
+  base_url: http://localhost:11434/v1   # Ollama. llama.cpp server: http://localhost:8080/v1
+  model: ""                    # the model name your server expects, e.g. a 1-8B coder model
+  api_key_env: null            # NAME of an environment variable holding the key; never the key itself
+  context_window: 8192         # must match what the server is actually configured to use
+  max_output_tokens: 1024
+  temperature: 0.2             # first sample of every attempt
+  exploration_temperature: 0.7 # remaining samples
+  timeout_s: 300
+  system_prompt: true          # false: fold the system message into the user message
+  extra_body: {}               # passed through to the server as-is
+
+budget:
+  chars_per_token: 3.5         # rough estimate used for budget checks
+  safety_margin: 0.9           # prompt + answer must fit in context_window * safety_margin
+  max_error_tokens: 500        # error text kept for fix prompts
+
+run:
+  samples: 3                   # candidates per attempt (best-of-N with tests as the judge)
+  sampling: lazy               # lazy: stop at the first passing sample; parallel: request all at once
+  max_attempts: 3              # attempts per unit before it is escalated
+  error_feedback: true         # retries see the previous code and the error (false: fresh prompt; for ablations)
+  regression: related          # also run tests of finished units in the same file and of units that
+                               # depend on this one; or same_file / none
+  max_milestone_repairs: 2
+  save_attempts: true          # keep every prompt and reply under runs/<run>/state/attempts/
+
+checks:
+  cwd: "{workspace}"
+  env: {}                      # extra variables for checks; lists are joined with the path separator, e.g.
+  #  PYTHONPATH: ["{workspace}/src", "{workspace}"]   # default: each source root, then {workspace}
+  #  PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"              # much faster pytest startup if tests need no plugins
+  # Checks run model-written code, so they inherit only variables matching inherit_env (OS basics,
+  # PATH, TEMP, HOME, PYTHON*, ...; see docs/05-reference.md) and never those matching
+  # secret_env_patterns or model.api_key_env. This is not a sandbox: use a container for untrusted models.
+  # inherit_env: ["*"]         # inherit everything except secrets (less safe)
+  # secret_env_patterns: ["*TOKEN*", "*SECRET*", "*PASSWORD*", "*PASSWD*", "*API_KEY*", "*APIKEY*",
+  #                       "*CREDENTIAL*", "*PRIVATE_KEY*", "*CONNECTION_STRING*"]
+  sanitize: true               # deterministic repairs of model output (false: for ablations)
+  strict_annotations: false    # true: annotation mismatches fail the signature check
+  commands: []                 # extra checks between imports and tests, for example:
+  #  - name: lint
+  #    command: ["ruff", "check", "--quiet", "--select", "F,E9", "--ignore", "F401,E402", "{file}"]
+  #    extensions: [".py"]
+  tests:
+    command: ["{python}", "-m", "pytest", "{tests}", "-x", "-q", "--tb=short", "--no-header", "-p", "no:cacheprovider"]
+    timeout_s: 120

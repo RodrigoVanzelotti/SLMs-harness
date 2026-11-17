@@ -1,0 +1,4 @@
+- Python 3.11. Type hints on every function.
+- No global state. No printing unless the task says so.
+- Raise ValueError for invalid arguments.
+- Helpers that only one function needs start with an underscore.

@@ -1,0 +1,95 @@
+# Scripted replies per unit id, served in order. They mimic typical small-model output.
+
+tokenize.normalize:
+  - |
+    Here is the function:
+
+    ```python
+    def normalize(text: str) -> str:
+        return "".join(ch if ch.isalnum() or ch == "'" else " " for ch in text.lower())
+    ```
+
+# First reply forgets to strip apostrophes, so the tests fail and a fix prompt follows.
+tokenize.tokenize:
+  - |
+    ```python
+    def tokenize(text: str) -> list[str]:
+        return normalize(text).split()
+    ```
+  - |
+    You are right, the apostrophes must be stripped:
+
+    ```python
+    def tokenize(text: str) -> list[str]:
+        words = (word.strip("'") for word in normalize(text).split())
+        return [word for word in words if word]
+    ```
+
+# Includes example usage at the top level; sanitize removes it.
+tokenize.StopWordFilter:
+  - |
+    ```python
+    class StopWordFilter:
+        def __init__(self, stop_words: Iterable[str]) -> None:
+            self._stop = {word.lower() for word in stop_words}
+
+        def filter(self, words: list[str]) -> list[str]:
+            return [word for word in words if word.lower() not in self._stop]
+
+
+    print(StopWordFilter(["a"]).filter(["a", "b"]))
+    ```
+
+analyze.word_frequencies:
+  - |
+    ```python
+    def word_frequencies(words: list[str]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for word in words:
+            counts[word] = counts.get(word, 0) + 1
+        return counts
+    ```
+
+# Redefines the Stats dependency it was shown; sanitize removes the copy.
+analyze.compute_stats:
+  - |
+    ```python
+    from dataclasses import dataclass
+
+
+    @dataclass
+    class Stats:
+        total_words: int
+        unique_words: int
+        top_words: list[tuple[str, int]]
+
+
+    def compute_stats(text: str, top_n: int = 3, stop_words: Iterable[str] = ()) -> Stats:
+        words = StopWordFilter(stop_words).filter(tokenize(text))
+        counts = word_frequencies(words)
+        ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        return Stats(total_words=len(words), unique_words=len(counts), top_words=ranked[:top_n])
+    ```
+
+cli.main:
+  - |
+    ```python
+    def main(argv: list[str] | None = None) -> int:
+        parser = argparse.ArgumentParser(prog="textstats")
+        parser.add_argument("file")
+        parser.add_argument("--top", type=int, default=3)
+        parser.add_argument("--stop-words", nargs="*", default=[])
+        args = parser.parse_args(argv)
+        path = Path(args.file)
+        if not path.is_file():
+            print(f"error: file not found: {args.file}", file=sys.stderr)
+            return 1
+        stats = compute_stats(path.read_text(encoding="utf-8"), top_n=args.top, stop_words=args.stop_words)
+        result = {
+            "total_words": stats.total_words,
+            "unique_words": stats.unique_words,
+            "top_words": [[word, count] for word, count in stats.top_words],
+        }
+        print(json.dumps(result))
+        return 0
+    ```
