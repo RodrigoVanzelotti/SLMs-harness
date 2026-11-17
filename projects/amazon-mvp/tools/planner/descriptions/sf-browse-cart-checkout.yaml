@@ -1,0 +1,760 @@
+# Behavior text for apps/storefront/src/features/{browse,browsing-history,cart,checkout}.
+# Money is integer minor units. Wherever Intl formats currency, the space after `R$` is
+# U+00A0 (no-break space), exactly as Intl.NumberFormat('pt-BR') produces it.
+
+# ---------------------------------------------------------------- browse-model.ts
+
+sf.features.browse.browse-model.buildCategoryTree:
+  description: |
+    Index a flat category list by slug and by parent slug, with every sibling list sorted by name.
+    `bySlug` maps each slug to its node. `children` maps a parent slug to its child nodes, with the
+    key `null` for the roots. A node is a root when its `parentSlug` is null, empty, or not a slug of
+    the list (an orphan is shown at the top level instead of being hidden). A parent with no children
+    has no `children` entry. Sort each list with `a.name.localeCompare(b.name, 'pt-BR')`. Do not
+    mutate the input.
+  examples:
+    - 'buildCategoryTree([{ slug: "b", name: "Beta", parentSlug: null }, { slug: "a", name: "Alfa", parentSlug: "x" }]).children.get(null).map((n) => n.slug) == ["a", "b"]'
+
+sf.features.browse.browse-model.categoryTrail:
+  description: |
+    Return the chain of categories from the root down to `slug` (inclusive), or `[]` when the slug is unknown.
+    Start at `tree.bySlug.get(slug)` and walk up through `parentSlug`, putting each node in front of
+    the list. Stop when the parent is missing, when a node is already in the list (a corrupted cycle),
+    or once the list has 20 nodes.
+  examples:
+    - 'categoryTrail(buildCategoryTree([{ slug: "eletronicos", name: "Eletrônicos", parentSlug: null }, { slug: "audio", name: "Áudio", parentSlug: "eletronicos" }, { slug: "fones", name: "Fones de Ouvido", parentSlug: "audio" }]), "fones").map((n) => n.slug) == ["eletronicos", "audio", "fones"]'
+    - 'categoryTrail(buildCategoryTree([{ slug: "a", name: "A", parentSlug: "b" }, { slug: "b", name: "B", parentSlug: "a" }]), "a").map((n) => n.slug) == ["b", "a"]'
+
+sf.features.browse.browse-model.departmentFacet:
+  description: |
+    Build the "Departamento" filter: the ancestors of the selected category, the selection, and its sub-categories that have results.
+    With a non-empty `selectedSlug`, take `categoryTrail(tree, selectedSlug)`: `selected` is its last
+    node and `trail` is the rest (root first). An empty or unknown slug gives `trail: []` and
+    `selected: null`. `options` are the children of the selection, or the roots when nothing is
+    selected (`tree.children.get(selected?.slug ?? null)`), in tree order, each as `{ node, count }`
+    with the count from `counts` matched by slug (0 when absent). Options with a count of 0 are left
+    out, so a leaf selection has no options.
+  examples:
+    - 'departmentFacet(buildCategoryTree([{ slug: "e", name: "E", parentSlug: null }, { slug: "f", name: "F", parentSlug: "e" }]), [{ slug: "e", count: 2 }, { slug: "f", count: 2 }], "f").trail.map((n) => n.slug) == ["e"]'
+
+sf.features.browse.browse-model.brandFacet:
+  description: |
+    Count the brands of the matched product slugs, most frequent first, as `{ name, key: brandKey(name), count }`.
+    Call `brandOf(slug)` once per slug; a slug without a brand (undefined or '') is not counted. Sort by
+    count, descending, then by name with `localeCompare(…, 'pt-BR')`.
+  examples:
+    - 'brandFacet(["a", "b", "c", "d", "x"], (s) => ({ a: "Vortex", b: "Amazon", c: "Vortex", d: "Apple" })[s]) == [{ name: "Vortex", key: "vortex", count: 2 }, { name: "Amazon", key: "amazon", count: 1 }, { name: "Apple", key: "apple", count: 1 }]'
+
+sf.features.browse.browse-model.listingTitle:
+  description: |
+    Heading of the product listing: the search, else the brand, else the category, else `Todos os produtos`.
+    - `q` set: `Resultados para “{q}”` (curly quotes U+201C and U+201D), plus ` em {categoryName}`
+      when there is a category. The brand is ignored.
+    - Else `brandName` set: `{brandName} em {categoryName}`, or `{brandName}` without a category.
+    - Else `categoryName` when given, else `Todos os produtos`.
+  examples:
+    - 'listingTitle({ q: "fone", categoryName: "Áudio" }) == "Resultados para “fone” em Áudio"'
+    - 'listingTitle({ q: "", brandName: "Vortex", categoryName: "Áudio" }) == "Vortex em Áudio"'
+    - 'listingTitle({ q: "" }) == "Todos os produtos"'
+
+sf.features.browse.browse-model.resultsSummary:
+  description: |
+    Amazon-style result count of a listing page, such as `1-48 de 150 resultados`.
+    Numbers are written with `toLocaleString('pt-BR')` (`1.500`).
+    - `total === 1`: `1 resultado`.
+    - `total <= pageSize` and `page === 1`: `{total} resultados` (also `0 resultados`).
+    - Otherwise `{first}-{last} de {total} resultados`, with first = (page - 1) * pageSize + 1 and
+      last = min(total, page * pageSize).
+  examples:
+    - 'resultsSummary(4, 48, 150) == "145-150 de 150 resultados"'
+    - 'resultsSummary(21, 48, 1500) == "961-1.008 de 1.500 resultados"'
+    - 'resultsSummary(1, 48, 12) == "12 resultados"'
+
+sf.features.browse.browse-model.lastPage:
+  description: |
+    Number of the last result page: `Math.ceil(total / pageSize)`, never below 1.
+  examples:
+    - 'lastPage(150, 48) == 4'
+    - 'lastPage(0, 48) == 1'
+
+sf.features.browse.browse-model.pageWindow:
+  description: |
+    Page links around the current page: the first, the last, the current page and its neighbours, with `'gap'` where pages are skipped.
+    Take the set {1, last, page - 1, page, page + 1}, keep the numbers in 1..last, and sort them. Walk
+    the sorted list: when a number is exactly 2 above the previous one, insert the single page between
+    them; when it is more than 2 above, insert `'gap'`; then push the number.
+  examples:
+    - 'pageWindow(10, 20) == [1, "gap", 9, 10, 11, "gap", 20]'
+    - 'pageWindow(3, 20) == [1, 2, 3, 4, "gap", 20]'
+    - 'pageWindow(1, 1) == [1]'
+
+# ---------------------------------------------------------------- browse-params.ts
+
+sf.features.browse.browse-params.brandKey:
+  description: |
+    URL key of a brand name: accents removed, lowercase, and every run of other characters turned into one hyphen.
+    `normalize('NFD')`, remove the combining marks U+0300 to U+036F, lowercase, replace each run of
+    characters outside `[a-z0-9]` with `-`, then remove a leading and a trailing `-`.
+  examples:
+    - 'brandKey("Letra Viva") == "letra-viva"'
+    - 'brandKey("Genérico") == "generico"'
+    - 'brandKey("  Já & Cia. ") == "ja-cia"'
+
+sf.features.browse.browse-params.parsePrice:
+  description: |
+    Parse a `price` URL value `min-max` (integer minor units) into a `PriceRange`, or null when it is not a usable range.
+    The whole value must match `^(\d{1,9})-(\d{1,9})?$` (no spaces, signs or decimals). A missing max
+    means no upper bound (`max: null`). A max that is not greater than min gives null.
+  examples:
+    - 'parsePrice("200000-") == { min: 200000, max: null }'
+    - 'parsePrice("0-5000") == { min: 0, max: 5000 }'
+    - 'parsePrice("5000-5000") == null'
+
+sf.features.browse.browse-params.priceParam:
+  description: |
+    Write a price range as its `price` URL value: `{min}-{max}`, with nothing after the hyphen when `max` is null.
+  examples:
+    - 'priceParam({ min: 200000, max: null }) == "200000-"'
+
+sf.features.browse.browse-params.parseBrowseParams:
+  description: |
+    Read the listing state from Next.js search params, using the defaults of `EMPTY_BROWSE` for anything missing or invalid.
+    For every key use the first element when the value is an array, and '' when it is missing.
+    - `q`: trimmed, inner runs of whitespace collapsed to one space, cut to `CATALOG_SEARCH_MAX_LENGTH`.
+    - `category`: trimmed and cut to 100 characters ('' is valid: the header's "Todos" submits it).
+    - `brand`: `brandKey(value)` cut to 100 characters.
+    - `price`: `parsePrice(value.trim())`.
+    - `inStock`: true only for exactly `1` or `true`.
+    - `sort`: the value when it is one of `CATALOG_SORTS`, else `relevance`.
+    - `page`: the trimmed value, '' meaning 1. `pageValid` is true when the value (or `1` when empty)
+      matches `^\d+$` and its number is between 1 and `MAX_PAGE`. `page` is that number when valid,
+      else 1.
+  examples:
+    - 'parseBrowseParams({ q: "  fone   bluetooth ", brand: "Letra Viva", price: "5000-10000", inStock: "1", sort: "price-desc", page: "3" }) == { q: "fone bluetooth", category: "", brand: "letra-viva", price: { min: 5000, max: 10000 }, inStock: true, sort: "price-desc", page: 3, pageValid: true }'
+    - 'parseBrowseParams({ page: "abc" }) == { ...EMPTY_BROWSE, pageValid: false }'
+    - 'parseBrowseParams({ q: ["first", "second"] }).q == "first"'
+
+sf.features.browse.browse-params.browseHref:
+  description: |
+    Build the canonical `/products` URL of the listing with some parameters changed; any change except `page` goes back to page 1.
+    Merge `{ ...params, page: 1, ...change }`, then `set` on a `URLSearchParams`, in this order and
+    only when present: `q`, `category`, `brand`, `price` (as `priceParam`), `inStock` = `1`, `sort`
+    (when not `relevance`), `page` (when greater than 1). Return `/products?{query}`, or `/products`
+    when the query is empty. `pageValid` is not part of the URL. Do not mutate the arguments.
+  examples:
+    - 'browseHref({ ...EMPTY_BROWSE, q: "fone bluetooth", category: "audio", brand: "vortex", price: { min: 5000, max: null }, inStock: true, sort: "newest", page: 4 }, { page: 4 }) == "/products?q=fone+bluetooth&category=audio&brand=vortex&price=5000-&inStock=1&sort=newest&page=4"'
+    - 'browseHref({ ...EMPTY_BROWSE, q: "fone", page: 4 }) == "/products?q=fone"'
+    - 'browseHref(EMPTY_BROWSE) == "/products"'
+
+sf.features.browse.browse-params.categoryHref:
+  description: |
+    URL of the listing filtered by one category only: `browseHref(EMPTY_BROWSE, { category: slug })`.
+  examples:
+    - 'categoryHref("games-e-consoles") == "/products?category=games-e-consoles"'
+
+sf.features.browse.browse-params.brandHref:
+  description: |
+    URL of the listing filtered by one brand only: `browseHref(EMPTY_BROWSE, { brand: brandKey(brand) })`.
+  examples:
+    - 'brandHref("Genérico") == "/products?brand=generico"'
+
+sf.features.browse.browse-params.browseKey:
+  description: |
+    Key that changes whenever the result changes (Suspense key): the URL with the current page, then `#ok` or `#invalid`.
+    Return `browseHref(params, { page: params.page }) + '#' + (params.pageValid ? 'ok' : 'invalid')`.
+  examples:
+    - 'browseKey({ ...EMPTY_BROWSE, page: 3 }) == "/products?page=3#ok"'
+    - 'browseKey({ ...EMPTY_BROWSE, pageValid: false }) == "/products#invalid"'
+
+sf.features.browse.browse-params.priceLabel:
+  description: |
+    Label of a price range in reais: `Até R$ 50`, `R$ 50 a R$ 100` or `R$ 2.000 ou mais`.
+    Format each bound (minor units) with `Intl.NumberFormat('pt-BR', { style: 'currency', currency:
+    'BRL', minimumFractionDigits: minor % 100 ? 2 : 0, maximumFractionDigits: 2 })` applied to
+    minor / 100, so whole reais have no decimals (`R$ 50`) and others have two (`R$ 49,90`).
+    - `max` null: `{min} ou mais`.
+    - `min` 0: `Até {max}`.
+    - Otherwise `{min} a {max}`.
+    The space after `R$` is the U+00A0 that Intl produces.
+  examples:
+    - 'priceLabel({ min: 0, max: 5000 }) == "Até R$\u00a050"'
+    - 'priceLabel({ min: 4990, max: null }) == "R$\u00a049,90 ou mais"'
+
+# ---------------------------------------------------------------- browse-server.ts
+
+sf.features.browse.browse-server.apiUrl:
+  description: |
+    Absolute catalog API URL for server-side fetches: `{internalBaseUrl}{publicBasePath}{path}`, plus `?{query}` when the query is not empty.
+    Read `internalBaseUrl` and `publicBasePath` from `getConfig().api`. Add no `?` when the query is
+    missing or serializes to ''. For example, internalBaseUrl `http://api`, publicBasePath `/api/v1`,
+    path `/catalog/facets` and query `q=fone` give `http://api/api/v1/catalog/facets?q=fone`.
+
+sf.features.browse.browse-server.getJson:
+  description: |
+    Fetch a URL with `{ cache: 'no-store' }` and return its parsed JSON body; throw when the status is not 2xx.
+    The error is a plain `Error` with the message `Catalog request failed ({status})`, such as
+    `Catalog request failed (503)`.
+
+sf.features.browse.browse-server.fetchCategories:
+  description: |
+    Load the category taxonomy once per request: `getJson<CatalogCategoryNode[]>(apiUrl('/catalog/categories'))`.
+    Wrap the loader in React's `cache` only when `typeof cache === 'function'`; otherwise export the
+    plain function. The header imports this module on every page, and unit tests use a React build
+    without `cache`, so importing the module must not throw. Errors propagate to the caller.
+
+sf.features.browse.browse-server.searchDepartments:
+  description: |
+    Root categories for the header's department select, and the root that contains `category`; never throws.
+    Build the tree with `buildCategoryTree(await fetchCategories())`. Return `options`: the roots
+    (`tree.children.get(null)`, or `[]`), and `selected`: the slug of the first node of
+    `categoryTrail(tree, category)` when a category is given, else ''; an unknown category also gives
+    ''. On any error return `{ options: [], selected: '' }`, so the header offers only "Todos".
+
+sf.features.browse.browse-server.loadBrowse:
+  description: |
+    Fetch everything one listing page needs (taxonomy, product page, facets, brand list) for parsed browse params; throws when the catalog API fails.
+    1. `tree = buildCategoryTree(await fetchCategories())`. A `category` that is not in `tree.bySlug`
+       returns `{ kind: 'unknown-category', tree }`.
+    2. With a brand, `brandName = brandByKey(params.brand)`; not found returns
+       `{ kind: 'unknown-brand', tree }`.
+    3. Build three `URLSearchParams`, using `set` in this order:
+       - scope: `q`, `category` (each only when set).
+       - scoped: scope plus, with a brand, `slugs` = the first `BROWSE_PAGE_SIZE` of
+         `brandSlugs(brandName)` joined with `,`.
+       - list: scoped plus `page`, `pageSize` (`BROWSE_PAGE_SIZE`, 48), `sort`; then, with a price,
+         `minPriceMinor` and (when max is not null) `maxPriceMinor`; then `inStock` = `true` when set.
+    4. In parallel with `Promise.all`, through `getJson(apiUrl(path, query))`: `/catalog/products`
+       with list, `/catalog/facets` with scoped, and, only with a brand, `/catalog/facets` with scope
+       (so the other brands stay selectable).
+    5. Return `{ kind: 'results', tree, page, facets, brands, brandName }`, where `brands` is
+       `brandFacet(slugs, brandOfSlug)` over the slugs of the brand-less facets when a brand is set,
+       else of `facets`.
+    For `{ q: 'ultimate' }` the requests are `/catalog/products?q=ultimate&page=1&pageSize=48&sort=relevance`
+    and `/catalog/facets?q=ultimate`.
+
+# ---------------------------------------------------------------- browse-view.tsx
+
+sf.features.browse.browse-view.BrowseResults:
+  description: |
+    Async server component for the result area of `/products` for one parsed URL: bar, filters, product grid and pagination, or a message state.
+    A private message layout is used for the error states: `<div class="az-browse az-browse--message">` ›
+    `<section class="az-browse-results">` (with `role="alert"` only for the catalog error) ›
+    `<h1 class="az-browse-results__title">{title}</h1>`, `<p>{body}</p>`,
+    `<p><Link class="az-browse-button" href>{label}</Link></p>`. The states, checked in this order:
+    1. `!params.pageValid`, before any request: `Página inválida` / `O número da página informado não existe.` / `Ir para a primeira página` → `browseHref(params)`.
+    2. `loadBrowse(params)` throws: alert `Não foi possível carregar os produtos` / `O catálogo não respondeu. Tente novamente em instantes.` / `Tentar novamente` → `browseHref(params, { page: params.page })`.
+    3. kind `unknown-category`: `Categoria não encontrada` / `Esta categoria não existe ou foi removida do catálogo.` / `Ver todos os produtos` → `/products`.
+    4. kind `unknown-brand`: `Marca não encontrada` / `Não há produtos desta marca no catálogo.` / `Ver todos os produtos` → `/products`.
+
+    Results: categoryName = the name of `tree.bySlug.get(params.category)`; title =
+    `listingTitle({ q, categoryName, brandName })`; last = `lastPage(page.total, BROWSE_PAGE_SIZE)`;
+    refined = price or inStock set; filtered = refined, brand or category set. Render a fragment:
+    1. `<div class="az-browse-bar">`:
+       - `<p class="az-browse-bar__summary" role="status">`: `resultsSummary(params.page, BROWSE_PAGE_SIZE, total)` when total > 0 and page <= last, else `{total.toLocaleString('pt-BR')} resultados`; then, with `q`, the text ` para ` and `<span class="az-browse-bar__query">“{q}”</span>` (textContent `3 resultados para “ultimate”`).
+       - When total > 0, `<SortSelect value={params.sort} options hidden>`: options are `CATALOG_SORTS` as `{ value, label: SORT_LABELS[value], href: browseHref(params, { sort: value }) }`; hidden is the current filters as [name, value] pairs, each only when set, in order `q`, `category`, `brand`, `price` (priceParam), `inStock` = `1`.
+    2. `<div class="az-browse">`:
+       - When `facets.total > 0`: `<FiltersToggle active={number of truthy category, brand, price, inStock}>` around the sidebar.
+       - `<section class="az-browse-results" aria-labelledby="az-browse-title">` with `<h1 id="az-browse-title" class="az-browse-results__title">{title}</h1>`, then:
+         - total 0: `<div class="az-browse-empty">`, `<p class="az-browse-empty__title">` = `Nenhum resultado para “{q}”` (or `Nenhum produto encontrado` without q) + ` com os filtros selecionados` when filtered + `.`; then a `<ul>` with one `<li>` per item: `Verifique a ortografia ou use termos mais gerais.` (with q); link `Remover filtros de preço e disponibilidade` → `browseHref(params, { price: null, inStock: false })` (refined); link `Limpar todos os filtros` → `browseHref(params, { category: '', brand: '', price: null, inStock: false })` (filtered); always link `Ver todos os produtos` → `/products`.
+         - page > last: `<div class="az-browse-empty"><p class="az-browse-empty__title">A página {page} não existe.</p><p>Estes resultados vão até a página {last}. <Link href={browseHref(params, { page: 1 })}>Ir para a primeira página</Link></p></div>`.
+         - else `<ul class="az-browse-grid">` with `<li key={item.id}><ProductCard product={item} freeDelivery availability /></li>` per item, then the pagination when last > 1.
+
+    Sidebar: `<nav class="az-browse-sidebar" aria-label="Filtros de resultados">` with these
+    `<section class="az-browse-facet" aria-labelledby={id}><h2 id={id}>` blocks, `‹ ` below meaning
+    `<span aria-hidden="true">‹ </span>` and `(n)` meaning `<span class="az-browse-count">(n)</span>`:
+    - `az-facet-department`, `Departamento`, from `departmentFacet(tree, facets.categories, params.category)`, shown with a selection or options. `<ul>`: with a selection, `<li><Link class="az-browse-back" href={browseHref(params, { category: '' })}>‹ Qualquer departamento</Link></li>`; per trail node the same link with its name and `{ category: node.slug }`; with a selection, `<li><span class="az-browse-selected" aria-current="true">{name}</span></li>`; per option `<li>` (class `az-browse-child` only with a selection) `<Link href={browseHref(params, { category: slug })}>{name} (count)</Link>`.
+    - `az-facet-brand`, `Marcas`, when `brands` is not empty. With a brand set, first `<Link class="az-browse-clear" href={browseHref(params, { brand: '' })}>‹ Limpar</Link>`. The first 8 brands in a `<ul>`; the others in `<details class="az-browse-more" open={one of them is selected}><summary>Ver mais {n} marcas</summary><ul>…</ul></details>`. Each brand: `<li><Link class="az-browse-check" href={browseHref(params, { brand: selected ? '' : key })} aria-current={selected ? 'true' : undefined}><span class="az-browse-check__box" aria-hidden="true">{selected ? '✓' : ''}</span>{name} (count)</Link></li>`.
+    - `az-facet-price`, `Preço`: `facets.priceBuckets` with count > 0, as `{ min: minMinor, max: maxMinor }`; shown when any. With a price set, `<Link class="az-browse-clear" href={browseHref(params, { price: null })}>‹ Qualquer preço</Link>`. `<ul>` items keyed by priceParam: the selected range (same min and max) as `<span class="az-browse-selected" aria-current="true">{priceLabel}</span>`, others `<Link href={browseHref(params, { price: range })}>{priceLabel} (count)</Link>`.
+    - `az-facet-stock`, `Disponibilidade`, shown when params.inStock or 0 < facets.inStock < facets.total: one check link like a brand's, href `browseHref(params, { inStock: !params.inStock })`, text `Em estoque (facets.inStock)`.
+
+    Pagination: `<nav class="az-browse-pages" aria-label="Paginação"><ul>`: first `<li>`: `‹ Anterior`
+    as `<Link rel="prev" href={browseHref(params, { page: page - 1 })}>` when page > 1, else
+    `<span class="az-browse-pages__disabled" aria-disabled="true">`. Then per `pageWindow(page, last)`
+    item: `'gap'` → `<li class="az-browse-pages__gap" aria-hidden="true">…</li>`; the current page →
+    `<li><span class="az-browse-pages__current" aria-current="page">{n}</span></li>`; others →
+    `<li><Link href={browseHref(params, { page: n })} aria-label="Página {n}">{n}</Link></li>`. Last
+    `<li>`: `Próximo<span aria-hidden="true"> ›</span>`, a `rel="next"` link to page + 1 when
+    page < last, else the disabled span.
+
+sf.features.browse.browse-view.BrowseSkeleton:
+  description: |
+    Streaming placeholder of a result page: a busy container with a hidden loading status and eight card placeholders.
+    `<div class="az-browse az-browse--loading" aria-busy="true">` containing
+    `<p role="status" class="visually-hidden">Carregando resultados…</p>`,
+    `<div class="az-browse-skeleton az-browse-skeleton--sidebar" aria-hidden="true" />` and
+    `<ul class="az-browse-grid" aria-hidden="true">` with 8
+    `<li class="az-browse-skeleton az-browse-skeleton--card" />` keyed by index.
+
+sf.features.browse.filters-toggle.FiltersToggle:
+  description: |
+    Collapsible filter column for phones: a `Filtros` toggle button and a panel holding `children` (CSS keeps it open from 768px up).
+    State `open`, initially false. `<div class="az-browse-filters">` with:
+    - `<button type="button" class="az-browse-filters__toggle" aria-expanded={open} aria-controls="az-browse-filters-panel">`:
+      text `Filtros`, plus ` ({active})` when active > 0, then `<span aria-hidden="true">` with `▴`
+      when open, else `▾`. A click toggles `open`.
+    - `<div id="az-browse-filters-panel">` with class `az-browse-filters__panel`, plus ` is-open` when open,
+      containing `children`.
+
+sf.features.browse.sort-select.SortSelect:
+  description: |
+    "Classificar por" select that navigates to the chosen option's href at once; without JavaScript it is a GET form to `/products`.
+    Uses `useRouter()`. `<form action="/products" method="get" class="az-browse-sort">` with:
+    - one `<input type="hidden" name={name} value={value} />` per `hidden` pair, keyed by name;
+    - `<label htmlFor="az-browse-sort">Classificar por:</label>`;
+    - `<select id="az-browse-sort" name="sort" defaultValue={value}>` with `<option value={option.value}>{option.label}</option>`
+      per option. onChange: find the option whose value is the selected one and `router.push(option.href)`;
+    - `<noscript><button type="submit">Aplicar</button></noscript>`.
+
+# ---------------------------------------------------------------- browsing-history
+
+sf.features.browsing-history.browsing-history-store.getSnapshot:
+  description: |
+    Read the browsing history from localStorage, returning the same array object until the stored string changes.
+    Read `window.localStorage.getItem(STORAGE_KEY)` inside try/catch (an error counts as null). When
+    the string equals `cache.raw`, return `cache.entries` as is: `useSyncExternalStore` needs a stable
+    snapshot. Otherwise parse it (null or '' means `[]`). For an array, keep only valid entries: `id`,
+    `name` and `viewedAt` are strings and `Date.parse(viewedAt)` is not NaN. When an entry's
+    `image.src` is an own key of the imported `legacyImages` JSON (retired image src → ProductPhoto),
+    use a copy of the entry whose `image` is that photo; storage is not rewritten. Invalid JSON or a
+    non-array gives `EMPTY`. Store `cache = { raw, entries }` and return the entries.
+
+sf.features.browsing-history.browsing-history-store.write:
+  description: |
+    Save the browsing history to localStorage and notify this tab's subscribers.
+    `window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))` inside try/catch; when it
+    throws, return without notifying. Then `window.dispatchEvent(new Event(CHANGE_EVENT))`.
+
+sf.features.browsing-history.browsing-history-store.recordProductView:
+  description: |
+    Record a visit to a product: it moves to the front of the history with `viewedAt: now.toISOString()`, without duplicates.
+    Write `[{ ...product, viewedAt }, ...the getSnapshot() entries with another id]`, cut to
+    `MAX_ENTRIES` (50). Corrupt storage counts as an empty history and is overwritten.
+
+sf.features.browsing-history.browsing-history-store.removeProductView:
+  description: |
+    Remove one product from the browsing history: write the `getSnapshot()` entries whose id is not `id`.
+
+sf.features.browsing-history.browsing-history-store.clearBrowsingHistory:
+  description: |
+    Empty the browsing history: `write([])`.
+
+sf.features.browsing-history.browsing-history-store.useBrowsingHistory:
+  description: |
+    React hook returning the browsing history, re-rendering when this tab or another tab changes it.
+    Return `useSyncExternalStore(subscribe, getSnapshot, () => EMPTY)`. The subscribe function adds its
+    callback as a `window` listener for `storage` (other tabs) and for `CHANGE_EVENT`, and returns a
+    function that removes both listeners.
+
+sf.features.browsing-history.browsing-history-store.formatHistoryDay:
+  description: |
+    Timeline label of a visit date like Amazon's: `Hoje`, `Ontem`, or `{weekday}, {month} {day}` such as `Sáb, Set 26`.
+    Compare local calendar days: days = Math.round((midnight of `now` − midnight of the date) / 86 400 000).
+    0 → `Hoje`, 1 → `Ontem`, anything else → `${WEEKDAYS[date.getDay()]}, ${MONTHS[date.getMonth()]} ${date.getDate()}`
+    (local time; the day is not zero-padded).
+  examples:
+    - 'formatHistoryDay(new Date(2026, 8, 26, 10).toISOString(), new Date(2026, 8, 29, 12)) == "Sáb, Set 26"'
+    - 'formatHistoryDay(new Date(2026, 8, 28, 10).toISOString(), new Date(2026, 8, 29, 12)) == "Ontem"'
+
+sf.features.browsing-history.record-product-view.RecordProductView:
+  description: |
+    Invisible client component that records a product page visit in the browsing history.
+    In a `useEffect` with dependencies `[id, name, image]`, call `recordProductView({ id, name, image })`.
+    Render `null`.
+
+sf.features.browsing-history.browsing-history-menu.BrowsingHistoryMenu:
+  description: |
+    Navbar item `Histórico de navegação` that opens the browsing-history flyout on mouse hover, or on click or tap.
+    State `open` (false); refs: the wrapper div, a close timeout, and `openedByHover`.
+    `<div class="az-history-menu" onPointerEnter onPointerLeave>` with:
+    - `<button type="button">` with class `az-navbar__link az-history-menu__trigger` (plus ` is-open` when
+      open), `aria-expanded={open}`, `aria-controls="az-history-flyout"`, the text
+      `Histórico de navegação` and `<span class="az-history-menu__caret" aria-hidden="true" />`.
+    - When open: `<div id="az-history-flyout" class="az-history-flyout"><BrowsingHistoryStrip /></div>`.
+    Behavior:
+    - Pointer enter and leave only react when `event.pointerType === 'mouse'`. Enter: clear the pending
+      close timeout; when closed, set openedByHover; open. Leave: clear any timeout and close after 150 ms.
+    - Click: when openedByHover is set, only reset it (the click right after a hover must not close the
+      flyout); otherwise toggle `open`.
+    - While open, listen on `document`: `keydown` with key `Escape` closes; `pointerdown` whose target is
+      outside the wrapper closes. Remove both when it closes or unmounts. When closed, reset
+      openedByHover. Clear the timeout on unmount.
+
+sf.features.browsing-history.browsing-history-menu.BrowsingHistoryStrip:
+  description: |
+    "Seu histórico de navegação" panel: the recently viewed products as a timeline rail, with an edit mode to remove entries or clear all.
+    Uses `useBrowsingHistory()`, `useCart()` (only `cart`: an entry whose id is the `productId` of a cart
+    line is "in the cart"), and state `editing` (false). `<section class="az-history" aria-labelledby="az-history-title">`:
+    1. `<div class="az-history__header">`: `<h2 id="az-history-title" class="az-history__title">Seu histórico de navegação</h2>`;
+       when the history is not empty, `<button type="button" class="az-history__edit" aria-pressed={editing}>`
+       with text `Concluir` when editing, else `Exibir e editar` (toggles editing); when editing,
+       `<button type="button" class="az-history__edit">Limpar histórico</button>` → `clearBrowsingHistory()`.
+    2. Empty history: `<p class="az-history__empty">Os produtos que você visualizar aparecerão aqui. <Link href="/products">Explorar produtos</Link></p>`.
+    3. Otherwise `<HorizontalRail label="Seu histórico de navegação" className="az-history__rail">` with,
+       per entry in stored order, `<article class="az-history__item" key={id}>` containing:
+       - `<Link href="/products/{id}" class="az-history__product" title={name}>` with
+         `<span class="az-history__image"><ProductImage image={entry.image} />` and, when in the cart,
+         `<span class="az-history__in-cart">No carrinho</span>`, then `</span>` and
+         `<span class="az-history__name">{name}</span>`;
+       - when editing, `<button type="button" class="az-history__remove">Remover</button>` → `removeProductView(id)`;
+       - `<span class="az-history__timeline" aria-hidden="true"><span class="az-history__dot" /></span>`;
+       - `<time class="az-history__date" dateTime={viewedAt}>` with `formatHistoryDay(viewedAt, now)` only
+         for the first entry of its day: empty when the previous entry has the same label.
+
+# ---------------------------------------------------------------- cart
+
+sf.features.cart.cart-client.CartRequestError:
+  description: |
+    Error of a failed cart API request, carrying the HTTP status as the public readonly `status` field.
+    `super(message)`; `error.message` is the message given.
+
+sf.features.cart.cart-client.cartClient:
+  description: |
+    Browser client of the cart API: each method resolves to the `CartResponse` body or rejects with a `CartRequestError`.
+    A private helper sends `fetch(path, { method, credentials: 'same-origin', cache: 'no-store', headers, body })`.
+    With a body, `headers` is `{ 'content-type': 'application/json' }` and `body` is its JSON; without one,
+    both are undefined. The method is always passed, `'GET'` included. Read the body with
+    `response.json()`, null when it does not parse. A non-2xx status throws
+    `new CartRequestError(isApiErrorBody(payload) ? payload.error.message : 'Não foi possível atualizar seu carrinho.', response.status)`.
+    - `get()`: GET `CART_ROUTES.current` (`/api/v1/cart`).
+    - `add(body)`: POST `CART_ROUTES.items` (`/api/v1/cart/items`) with the body.
+    - `update(id, quantity)`: PATCH `${CART_ROUTES.items}/${encodeURIComponent(id)}` with `{ quantity }`.
+    - `remove(id)`: DELETE the same path, no body.
+    - `clear()`: DELETE `CART_ROUTES.items`, no body.
+
+sf.features.cart.cart-content.CartContent:
+  description: |
+    Body of the `/cart` page: notices and errors, the cart lines with quantity controls, the order summary, and a rail of products to add.
+    Uses `useCart()`. hasItems = status `ready` and the cart has lines; count = `cart.itemCount` (0
+    without cart); total = `formatCartMoney(subtotalMinor ?? 0, currency)`; unavailable = some line
+    with `!product.active` or quantity > `product.availableQuantity`. "subtotal" below is
+    `Subtotal ({count} item|itens): <strong>{total}</strong>` (`item` only for 1). Render a fragment:
+    1. `<main class="az-cart-main" aria-label="Carrinho de compras">`:
+       - always `<div class="az-cart-feedback" aria-live="polite" role="status">{notice}</div>`;
+       - with an error, `<div class="az-cart-error" role="alert">{error} ` plus, unless status is
+         `guest`, `<button type="button" disabled={pending}>Tentar novamente</button>` → `refresh()`;
+       - `<div class="az-cart-layout">` (plus ` az-cart-layout--filled` when hasItems) holding
+         `<div class="az-cart-primary">` with one panel, then always
+         `<p class="az-cart-disclaimer">Os preços e a disponibilidade podem mudar. Adicionar um produto ao carrinho não reserva estoque.</p>`,
+         and then the summary aside. Panels:
+         - loading: `<section class="az-cart-panel" aria-busy="true"><h1>Seu carrinho</h1><p>Carregando seus produtos…</p></section>`.
+         - error: `<section class="az-cart-panel"><h1>Seu carrinho</h1><p>Não foi possível carregar os itens. Tente novamente para consultar seu carrinho.</p></section>`.
+         - no items: `<section class="az-cart-panel az-cart-empty">`: `<h1>Seu carrinho está vazio</h1>`,
+           `<p>Encontre o que você precisa e adicione seus produtos ao carrinho.</p>`,
+           `<p>Continue comprando na <Link href="/">página inicial</Link> ou explore os <a href="#cart-products">produtos disponíveis abaixo</a>.</p>`,
+           and for guests `<div class="az-cart-signin">` with `<Link href="/login" class="az-cart-button">Entre na sua conta</Link>`,
+           `<Link href="/register" class="az-cart-button az-cart-button--secondary">Crie sua conta</Link>` and
+           `<p>Entre para consultar e salvar os itens do seu carrinho.</p>`.
+         - items: `<section class="az-cart-panel az-cart-items" aria-busy={pending}>`:
+           `<div class="az-cart-heading"><h1>Carrinho de compras</h1><button class="az-cart-text-button" type="button" disabled={pending}>Esvaziar carrinho</button></div>` (→ `clear()`),
+           `<div class="az-cart-price-label">Preço</div>`, `<ul class="az-cart-list">` of lines, and
+           `<div class="az-cart-subtotal">{subtotal}</div>`.
+       - Line: `<li class="az-cart-item" aria-label={name}>` (key productId) with
+         `<div class="az-cart-item__image"><ProductImage image={productPresentation(line.product).images[0]} /></div>`;
+         `<div class="az-cart-item__details">`: `<h2><Link href="/products/{productId}">{name}</Link></h2>`;
+         `<p>` with class `az-cart-stock` (plus ` az-cart-stock--unavailable` when `!inStock` or
+         quantity > availableQuantity) and text `Indisponível no momento` (`!inStock`),
+         `Quantidade selecionada indisponível` (over stock) or `Em estoque`;
+         `<p class="az-cart-description">` when there is a description;
+         `<div class="az-cart-item__actions">` with `<div class="az-cart-quantity" role="group" aria-label="Quantidade de {name}">`:
+         button `−` (aria-label `Diminuir quantidade de {name}`, disabled when pending or quantity <= 1) → `update(id, quantity - 1)`;
+         `<label><span class="visually-hidden">Quantidade de {name}</span><select value={quantity} disabled={pending}>`
+         with options 1..max(quantity, min(MAX_CART_QUANTITY, availableQuantity)) → `update(id, Number(value))`;
+         button `+` (aria-label `Aumentar quantidade de {name}`, disabled when pending or quantity >= min(MAX_CART_QUANTITY, availableQuantity)) → `update(id, quantity + 1)`;
+         after the group, `<button type="button" class="az-cart-text-button" aria-label="Excluir {name}" disabled={pending}>Excluir</button>` → `remove(id)`.
+         Then `<div class="az-cart-item__price"><strong>{unit price}</strong><span>Subtotal: {line total}</span></div>`
+         (`formatCartMoney` with the product currency).
+       - When hasItems: `<aside class="az-cart-summary" aria-label="Resumo da compra">`: `<h2>Resumo do pedido</h2>`,
+         `<p>{subtotal}</p>`, when checkoutEnabled `<PixPrice amountMinor={cart.subtotalMinor} currency={cart.currency} percent={pixDiscountPercent} prefix="ou " />`;
+         then, if checkoutEnabled and not unavailable, `<Link href="/checkout" class="az-cart-button">Continuar para finalizar a compra</Link>`;
+         else `<button type="button" class="az-cart-button" disabled aria-describedby="cart-checkout-help">Finalizar compra</button>`
+         and `<p id="cart-checkout-help" class="az-cart-summary__help">` with
+         `Revise os itens indisponíveis antes de continuar.` when unavailable, else
+         `A finalização de compras ainda não está disponível.`.
+    2. `<section id="cart-products" class="az-cart-discover" aria-labelledby="cart-products-title">`:
+       `<div class="az-cart-discover__heading"><h2 id="cart-products-title">Explore nossos produtos</h2><p>Escolha produtos para adicionar ao seu carrinho.</p></div>`, then:
+       - catalogFailed: `<p role="status">Não foi possível carregar os produtos. Atualize a página para tentar novamente.</p>`;
+       - products: `<HorizontalRail label="Produtos disponíveis" className="az-cart-product-rail">` with
+         `<ProductCard key={id} product={product} action={…} />`. The action for guests is
+         `<Link href="/login" class="az-cart-button">Entre para comprar</Link>`; otherwise
+         `<button type="button" class="az-cart-button" aria-label="Adicionar {name} ao carrinho" disabled={pending || status !== 'ready' || !inStock}>`
+         with text `Adicionar ao carrinho` (or `Indisponível` when out of stock) → `add(product.id)`;
+       - no products: `<p>Nenhum produto disponível no momento.</p>`.
+
+sf.features.cart.cart-header-link.CartHeaderLink:
+  description: |
+    Header link to the cart showing the item count from `useCart()`, with an accessible label.
+    count = 0 when status is `guest`, `cart?.itemCount ?? 0` when `ready`, otherwise unknown.
+    `<Link href="/cart" class="az-topbar__cart" aria-label>`: label `Carrinho, {count} item` (count 1),
+    `Carrinho, {count} itens`, or `Carrinho, quantidade indisponível` when unknown. Inside:
+    `<span class="az-topbar__cart-icon">{icon}<span class="az-topbar__cart-count" aria-live="polite">{count, or — when unknown}</span></span>`
+    and `<span class="az-topbar__cart-label">Carrinho</span>`.
+
+sf.features.cart.cart-provider.CartProvider:
+  description: |
+    Client context provider of the signed-in user's cart: loads it, keeps it fresh, and runs add, update, remove and clear one at a time through `cartClient`.
+    Props: `userId` (null for a guest) and `enabled` (cart feature on). Provide a `CartState` through
+    `<CartContext.Provider>` around `children`.
+    State: `cart` null; `status` `loading` when enabled and userId, else `guest`; `pending` false;
+    `error` null; `notice` ''. Refs: a `version` counter, `busy`, `refreshQueued`, `mounted`, and the
+    BroadcastChannel.
+    - Reporting an error: a `CartRequestError` with status 401 sets cart null, status `guest` and error
+      `Sua sessão expirou. Entre na sua conta para acessar o carrinho.`; another CartRequestError sets
+      error to its message; anything else sets `Não foi possível conectar. Tente novamente.`.
+    - `refresh()` (useCallback on enabled, userId): do nothing when not enabled or no userId. While a
+      mutation is running, only set refreshQueued. Else take `++version`, `await cartClient.get()`, and
+      ignore the outcome when unmounted or `version` changed meanwhile. Success: cart, status `ready`,
+      error null. Failure: status `error`, then report the error (so a 401 ends as `guest`).
+    - Effects: refresh on mount and whenever `usePathname()` changes; refresh on window `focus` and on
+      document `visibilitychange` when `document.visibilityState === 'visible'`; when
+      `typeof BroadcastChannel !== 'undefined'`, enabled and userId, open
+      `new BroadcastChannel('storefront-cart')` whose messages call refresh. Remove the listeners and
+      close the channel on cleanup.
+    - Mutations share one helper taking the request and a notice text. Resolve false without a request
+      when busy, status `guest` or not enabled. Else set busy, pending true, error null, notice '',
+      take `++version` and await the request. Success: when still mounted and the version is
+      unchanged, set cart, status `ready`, the notice, and `postMessage('changed')` on the channel;
+      resolve true (also when superseded). Failure: report it only when mounted and current; resolve
+      false, keeping the last confirmed cart. Finally clear busy and, when mounted, set pending false
+      and run a queued refresh.
+    - `add(productId, quantity = 1)` → `cartClient.add({ productId, quantity })`, notice
+      `Produto adicionado ao carrinho.`; `update(id, quantity)` → `Quantidade atualizada.`;
+      `remove(id)` → `Produto removido do carrinho.`; `clear()` → `Seu carrinho foi esvaziado.`.
+
+sf.features.cart.cart-provider.useCart:
+  description: |
+    Read the cart state from `CartContext`; throw `new Error('CartProvider is required')` when used outside a `CartProvider`.
+
+sf.features.cart.money.formatCartMoney:
+  description: |
+    Format integer minor units as currency for display: `Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(amountMinor / 100)`.
+    The currency defaults to `BRL`. Display only: all calculations stay in minor units.
+  examples:
+    - 'formatCartMoney(123456) == "R$\u00a01.234,56"'
+    - 'formatCartMoney(1000, "USD") == "US$\u00a010,00"'
+  notes: |
+    The space after the symbol is U+00A0, as produced by Intl.
+
+# ---------------------------------------------------------------- checkout
+
+sf.features.checkout.address-form.AddressForm:
+  description: |
+    Address form that creates or updates a delivery address through `checkoutClient.saveAddress` and passes the saved address to `onSave`.
+    State: `values` (`AddressInput`), from `initial` (complement and phone default to '') or, without
+    it, all fields '' except `recipient = name`; `saving`; `error`.
+    `<form class="az-checkout-address-form" onSubmit>`:
+    - with an error, `<p class="az-checkout-error" role="alert">{error}</p>`;
+    - a `<div>` with one `<label>{label}<input … /></label>` per row of the provided `fields`
+      ([field, label, maxLength, autoComplete]), in order. Input: `name={field}`,
+      `value={values[field] ?? ''}`, `type="tel"` for phone, `required` unless the field is in
+      `optional`, `maxLength`, `minLength={2}` for recipient, street, neighborhood, city and state,
+      `pattern` `[0-9]{8}` for postalCode and `[A-Z]{2}` for state, `inputMode` `numeric` for postalCode
+      and `tel` for phone, `autoComplete`, `disabled={saving}`. onChange stores the value, uppercased
+      for `state`;
+    - `<button class="az-cart-button" disabled={saving}>` (submit) with `Salvando…` while saving, else
+      `Salvar endereço`; `<button type="button" class="az-checkout-link" disabled={saving}>Cancelar</button>` → `onCancel()`.
+    Submit: `preventDefault()`; saving true, error ''; `onSave(await checkoutClient.saveAddress(values, initial?.id))`;
+    on failure the error is the Error's message, else `Não foi possível salvar o endereço.`; finally
+    saving false.
+
+sf.features.checkout.card-form.CardForm:
+  description: |
+    "Adicionar cartão" form: checks the card number in the browser and saves only the brand, last four digits, holder and expiry.
+    State: `number` (digits only), `holderName` (starts as `name`), `expMonth` and `expYear` (strings,
+    '' until chosen), `saving`, `error`. brand = `detectCardBrand(number)`. Year options: the current
+    year and the next 15.
+    `<form class="az-checkout-address-form az-checkout-card-form" aria-label="Adicionar cartão" noValidate>`:
+    - with an error, `<p class="az-checkout-error" role="alert">{error}</p>`;
+    - a `<div>` with:
+      - `<label>Número do cartão<input name="cardNumber" value={formatCardNumber(number)} inputMode="numeric" autoComplete="cc-number" maxLength={23} aria-describedby="card-brand-hint" disabled={saving} /></label>`;
+        onChange stores `cardDigits(event.target.value)`;
+      - `<span id="card-brand-hint" class="az-checkout-muted">` with `CARD_BRAND_LABELS[brand]`, or
+        `Visa, Mastercard, Elo, American Express ou Hipercard` without a brand;
+      - `<label>Nome no cartão<input name="holderName" value maxLength={CARD_HOLDER_MAX_LENGTH} autoComplete="cc-name" disabled={saving} /></label>`;
+      - `<fieldset class="az-checkout-card-expiry" disabled={saving}><legend>Data de validade</legend>` with
+        `<select aria-label="Mês de validade" autoComplete="cc-exp-month">` (`<option value="">Mês</option>`,
+        then values 1 to 12 shown as `01` to `12`) and `<select aria-label="Ano de validade" autoComplete="cc-exp-year">`
+        (`<option value="">Ano</option>`, then the years);
+    - `<p class="az-checkout-muted">Simulação: guardamos apenas a bandeira, os 4 últimos dígitos, o nome e a validade. O número completo não é enviado e nenhum código de segurança é pedido.</p>`;
+    - `<button class="az-cart-button" disabled={saving}>` with `Salvando…` or `Adicionar cartão`, and
+      `<button type="button" class="az-checkout-link" disabled={saving}>Cancelar</button>` → `onCancel()`.
+    Submit (`preventDefault()`): the error becomes the first failing check, or '' when all pass:
+    `cardNumberError(number)`; trimmed holder shorter than 2 → `Informe o nome impresso no cartão.`;
+    month or year missing → `Informe a validade do cartão.`; `isCardExpired({ expMonth, expYear })`
+    (as numbers) → `Cartão vencido.`. When valid: saving true;
+    `onSave(await checkoutClient.saveCard({ brand, last4: last 4 digits, holderName: trimmed, expMonth, expYear }))`;
+    on failure the Error's message, else `Não foi possível salvar o cartão.`; finally saving false.
+    There is no security-code field.
+
+sf.features.checkout.card-number.cardDigits:
+  description: |
+    Keep only the digits of a card number input, at most 19: `value.replace(/\D/g, '').slice(0, 19)`.
+  examples:
+    - 'cardDigits("4111 1111-1111.1111") == "4111111111111111"'
+
+sf.features.checkout.card-number.formatCardNumber:
+  description: |
+    Display a card number with spaces: groups of four digits, or 4-6-5 for American Express.
+    Start from `cardDigits(value)`. When `detectCardBrand` gives `AMEX`, join the non-empty slices
+    [0, 4), [4, 10) and [10, 15) with spaces (digits after the 15th are dropped). Otherwise put a space
+    after every group of four digits that is followed by another digit (no trailing space).
+  examples:
+    - 'formatCardNumber("4111111111111111") == "4111 1111 1111 1111"'
+    - 'formatCardNumber("378282246310005") == "3782 822463 10005"'
+    - 'formatCardNumber("41111") == "4111 1"'
+
+sf.features.checkout.card-number.detectCardBrand:
+  description: |
+    Card brand from the number's prefix (simplified BIN ranges), or null when no accepted brand matches.
+    Test `cardDigits(value)` against these patterns, in this order, and return the first match:
+    1. `^(606282|3841)` → `HIPERCARD`
+    2. `^(4011|4312|4389|4514|4576|5041|5066|5067|509|6277|6362|6363|650|6516|6550)` → `ELO`
+    3. `^3[47]` → `AMEX`
+    4. `^(5[1-5]|2[2-7])` → `MASTERCARD`
+    5. `^4` → `VISA`
+    The order matters: some Elo prefixes start with 4 or 5.
+  examples:
+    - 'detectCardBrand("5066991111111118") == "ELO"'
+    - 'detectCardBrand("2223003122003222") == "MASTERCARD"'
+    - 'detectCardBrand("6011111111111117") == null'
+
+sf.features.checkout.card-number.passesLuhn:
+  description: |
+    Luhn checksum of the card's digits; false when there are no digits.
+    From the rightmost digit of `cardDigits(value)`, double every second digit (subtracting 9 when the
+    result is above 9) and add all digits. Valid when the sum is a multiple of 10 and there is at least
+    one digit.
+  examples:
+    - 'passesLuhn("4111 1111 1111 1111") == true'
+    - 'passesLuhn("4111111111111112") == false'
+    - 'passesLuhn("") == false'
+
+sf.features.checkout.card-number.cardNumberError:
+  description: |
+    Error message for the card number field, or '' when the number is acceptable.
+    Use `cardDigits(value)`. Without a brand (`detectCardBrand`), including an empty number, return
+    `Bandeira não aceita. Use Visa, Mastercard, Elo, American Express ou Hipercard.` Then the number
+    must have 15 digits for AMEX, or 16 or 19 digits for the other brands, and pass `passesLuhn`;
+    otherwise return `Número de cartão inválido.`
+  examples:
+    - 'cardNumberError("4111 1111 1111 1111") == ""'
+    - 'cardNumberError("411111111111111") == "Número de cartão inválido."'
+
+sf.features.checkout.checkout-client.CheckoutError:
+  description: |
+    Error of a failed checkout API request, carrying the HTTP status as the public readonly `status` field.
+    `super(message)`; `error.message` is the message given.
+
+sf.features.checkout.checkout-client.checkoutClient:
+  description: |
+    Browser client for addresses, saved cards, quotes and orders: each method resolves to the JSON body or rejects with a `CheckoutError`.
+    A private helper sends `fetch(path, { method, credentials: 'same-origin', cache: 'no-store', headers, body })`;
+    when a body is given, `headers` is `{ 'content-type': 'application/json' }` and `body` its JSON,
+    else both are undefined. The method is always passed, `'GET'` included. Parse the body with
+    `response.json()` (null when it fails). A non-2xx status throws `new CheckoutError(message, response.status)`:
+    - an API error body (`isApiErrorBody`) with a non-empty `error.details`: `Confira os campos obrigatórios e seus formatos.`;
+    - another API error body: its `error.message`;
+    - anything else: `Não foi possível completar a solicitação.`.
+    Methods (paths from `CHECKOUT_ROUTES`, ids through `encodeURIComponent`):
+    - `addresses()`: GET `/api/v1/addresses` → `SavedAddress[]`.
+    - `saveAddress(data, id?)`: POST `/api/v1/addresses`, or PUT `/api/v1/addresses/{id}` with an id → `SavedAddress`.
+    - `cards()`: GET `/api/v1/payment-cards` → `SavedPaymentCard[]`.
+    - `saveCard(data)`: POST `/api/v1/payment-cards` → `SavedPaymentCard`.
+    - `deleteCard(id)`: DELETE `/api/v1/payment-cards/{id}` → the remaining `SavedPaymentCard[]`.
+    - `quote(paymentMethod?)`: GET `/api/v1/orders/quote`, plus `?paymentMethod={method}` when given → `CheckoutQuote`.
+    - `place(data)`: POST `/api/v1/orders` → `OrderResponse`.
+
+sf.features.checkout.checkout-client.cartContentKey:
+  description: |
+    Fingerprint of a cart's content, used to tell whether a checkout quote still matches the cart in the provider.
+    Return `JSON.stringify` of: `null` without a cart; else `[cart.id, cart.currency, ...lines]` with
+    the lines sorted by `productId` (`localeCompare`, on a copy: never reorder the cart), each line as
+    `[productId, quantity, unitPriceMinor, product.active, product.availableQuantity]`. Totals, item
+    count and names are not part of the key. A cart `cart-1` in BRL with lines `b` (1 × 1099, 3
+    available) and `a` (2 × 500, 5 available) gives `["cart-1","BRL",["a",2,500,true,5],["b",1,1099,true,3]]`.
+  examples:
+    - 'cartContentKey(null) == "null"'
+
+sf.features.checkout.checkout-content.installmentLabel:
+  description: |
+    Text of one interest-free installment option, such as `2x sem juros (1ª de R$ 5,50 + 1x de R$ 5,49)`.
+    Amounts use `formatCartMoney(amount, currency)`.
+    - count 1: `1x de {installment} sem juros (à vista)`.
+    - first installment equal to the others: `{count}x de {installment} sem juros`.
+    - otherwise: `{count}x sem juros (1ª de {first} + {count - 1}x de {installment})`.
+  examples:
+    - 'installmentLabel({ count: 1, installmentMinor: 1099, firstInstallmentMinor: 1099 }, "BRL") == "1x de R$\u00a010,99 sem juros (à vista)"'
+    - 'installmentLabel({ count: 2, installmentMinor: 549, firstInstallmentMinor: 550 }, "BRL") == "2x sem juros (1ª de R$\u00a05,50 + 1x de R$\u00a05,49)"'
+
+sf.features.checkout.checkout-content.CheckoutContent:
+  description: |
+    Client checkout page: address, simulated payment (cards, Pix, installments), cart review and API-quoted summary; places the order.
+    Uses `useRouter()`, `useCart()` (its `error` is cartError).
+    Initial: payment `''`, cardId `DEMO_CARD_ID`, installments 1, addressLoading true, editor/uncertain null.
+    locked = pending || submitting || uncertain. quoteMethod = payment || `DEFAULT_QUOTE_METHOD`. validQuote: `cartContentKey(quote.cart) === cartContentKey(cart)` and `quote.paymentMethod === quoteMethod`. plan (card, valid quote): option with count `installments`, else the first.
+
+    Effects (ignore stale results):
+    - [retry]: `checkoutClient.addresses()` (keep addressId if listed, else the first id or ''; failure → addressError: the message, or `Não foi possível carregar os endereços.`) and `checkoutClient.cards()` (failure → cardsError `Não foi possível carregar seus cartões salvos.`).
+    - [cart key, status, pending, retry, uncertain, quoteMethod]: clear quote and quoteError; if `ready` with lines, not pending or uncertain: `checkoutClient.quote(quoteMethod)` (failure → quoteError, fallback `Não foi possível calcular o total.`).
+
+    confirm(): return if busy (ref) or pending; clear error. Unless uncertain, the first failing check sets error and returns: `Selecione e salve um endereço de entrega.` (no addressId, or editing); `Selecione uma forma de pagamento simulada.`; `Seu carrinho está vazio.`; `Atualize e revise o resumo antes de confirmar.` (no valid quote); `Selecione um cartão e o número de parcelas.` (card while addingCard or no plan).
+    Request: uncertain, else `{ cartId, revision: quote.revision, addressId, paymentMethod }` plus, for `SIMULATED_CARD` only, `cardId` (not for the demo card) and `installments: plan.count`. Set busy/submitting (cleared finally); `checkoutClient.place(request)`:
+    - success: placed, uncertain null, `await refresh()`, `router.push('/checkout/success/' + order.id)`. Never `clear()`.
+    - not a `CheckoutError`, or status >= 500: uncertain = request (resent unchanged, even if the cart empties), error `Não foi possível confirmar a resposta. Tente novamente para consultar o mesmo pedido com segurança.`, no refresh.
+    - other CheckoutError: uncertain null, error = message; 401 → `router.push('/login?next=checkout')`, else `await refresh()` and retry + 1.
+
+    Early returns in `<main class="az-checkout-main"><section class="az-checkout-panel">`: placed → role status `Pedido salvo. Abrindo confirmação…`; `guest` → `<h1>Entre para finalizar sua compra</h1>`, Link `Entrar na sua conta` → `/login?next=checkout`; `loading` → role status `Carregando seu carrinho…`; `error` → `<h1>Não foi possível carregar seu carrinho</h1>`, `<p role="alert">{cartError}</p>`, `<button class="az-cart-button">Tentar novamente</button>` → refresh(); no lines (not uncertain) → `<h1>Seu carrinho está vazio</h1>`, `<p>Adicione produtos antes de finalizar a compra.</p>`, Link `Voltar ao carrinho` → `/cart`.
+
+    Page `<main class="az-checkout-main">`: `<h1 class="visually-hidden">Finalizar compra</h1>`, `<div class="az-checkout-error" role="alert">{error || cartError}</div>` (when set), `<div class="az-checkout-layout">` › primary `<div class="az-checkout-primary">` + aside.
+    Confirm button (section 4 and aside): `<button type="button" class="az-cart-button">` `Confirmando…` / `Tentar confirmar novamente` (uncertain) / `Confirmar pedido`; disabled when (locked and not uncertain), submitting, or (not uncertain and (no valid quote or addressLoading)).
+    Sections are `<section class="az-checkout-panel">`; "muted" is `<p class="az-checkout-muted">` (texts (a)-(g): notes); other buttons are `az-checkout-link`, disabled (like the selects) when locked.
+    1. `aria-labelledby="delivery-title"`: `<div class="az-checkout-heading"><h2 id="delivery-title">` `Entrega para {recipient}` or `Endereço de entrega`, + `Alterar` (editor = selected) when selected, not editing. Then `<p role="status">Carregando endereços…</p>`, or `<p class="az-checkout-error" role="alert">{addressError} <button>Tentar novamente</button></p>` (retry + 1), or: `<label class="az-checkout-address-choice">Endereço salvo<select>` when any (options `{recipient} — {street}, {number}`; disabled also while editing); the selected address (f); not editing: `<p>Nenhum endereço cadastrado. Adicione um endereço para continuar.</p>` (none) and `Adicionar endereço` (editor 'new'); editing: `<AddressForm key initial name onCancel onSave>` (onSave upserts by id, selects, closes, clears error).
+    2. `<h2>Forma de pagamento</h2>`, muted text (a), `<fieldset class="az-checkout-payment" disabled={locked || addingCard}>` with legend (g) and `name="payment"` radios in `<label>`s (checked by payment/cardId; change sets them): per saved card `{cardLabel(card)}<span class="az-checkout-muted"> · {holderName} · Validade MM/YYYY</span>` (`Vencido` when `isCardExpired`: radio disabled, label class `az-checkout-card-expired`); `Cartão fictício · {cardLabel(DEMO_CARD)}`; `Pix simulado` (with a rate, `aria-describedby="checkout-pix-hint"` and `<span id="checkout-pix-hint" class="az-checkout-pix-hint">{n}% de desconto à vista no Pix</span>`). Then cardsError `<p class="az-checkout-error">`; addingCard → `<CardForm name onCancel onSave>` (onSave appends, selects, closes, clears error), else, below `MAX_SAVED_CARDS`, `+ Adicionar cartão de crédito` (also `az-checkout-add-card`); card payment, not adding: `<label class="az-checkout-installments">Parcelamento<select value={plan?.count ?? installments}>` of installmentLabel options (no valid quote: disabled, one option `Calculando parcelas…`).
+    3. `<h2>Revise os produtos</h2>`, muted text (b), `<ul class="az-checkout-items">` of `<li aria-label={name}>`: image Link (`az-checkout-product-image`) and `<h3>` name Link, both to `/products/{id}`, `<strong>` unit price, muted `Subtotal: {line total}`, `<p class="az-checkout-error">Quantidade indisponível</p>` (out of stock or over availableQuantity), `<div class="az-checkout-item-actions">`: `<label>Quantidade<select aria-label="Quantidade de {name}">` (options as in the cart) → update(id, n); `Remover` (aria-label `Remover {name}`) → remove(id).
+    4. `az-checkout-panel az-checkout-bottom`: confirm button, `<div><strong>Total do pedido: {total}</strong>` + muted text (c) + `</div>`.
+    5. Help links (e).
+    Aside `<aside class="az-checkout-panel az-checkout-summary" aria-label="Resumo do pedido">`: confirm button; muted text (d); `<hr />`, quoteError `<p class="az-checkout-error" role="alert">`; no valid quote: `<p role="status">` `O resumo precisa ser atualizado.` (quoteError) or `Atualizando resumo…`, + `Atualizar resumo` (refresh(), retry + 1); `<dl>` of `<div><dt/><dd/></div>`: `Itens ({itemCount})` subtotal; `Frete` shipping; discountMinor > 0: `<div class="az-checkout-discount">` `Desconto Pix ({discountPercent}%)` (Pix) or `Descontos`, dd `− {discount}`; `<div class="az-checkout-total">` `Total do pedido`. Amounts: formatCartMoney of the valid quote, else `—`. Plan count > 1: `<p class="az-checkout-muted az-checkout-plan">No cartão: {installmentLabel}</p>`.
+  notes: |
+    Static texts referenced above:
+    (a) `Simulação acadêmica. Nenhuma cobrança será realizada.`
+    (b) `Entrega gratuita nesta simulação. Prazo de entrega não calculado.`
+    (c) `Pagamento simulado, sem cobrança real.`
+    (d) `Revise o endereço, os produtos e a forma de pagamento antes de confirmar.`
+    (e) `<p>Precisa de ajuda? <Link href="/help">Acesse a página de ajuda.</Link></p>` then `<Link href="/cart">Voltar ao carrinho</Link>`.
+    (f) `<p>{street}, {number}` (+ `, {complement}` when set) `<br />{neighborhood}, {city} — {state}<br />CEP {postalCode} · Brasil</p>`.
+    (g) `<legend class="visually-hidden">Pagamento simulado</legend>`.
+    Each radio is followed by a space and then its text, e.g. `<label><input type="radio" name="payment" value="SIMULATED_PIX" … /> Pix simulado</label>`;
+    the radio values are the card id, `SIMULATED_CARD` (demo card) and `SIMULATED_PIX`. In the summary
+    each `<dt>` is directly followed by its `<dd>`, so the text reads `Total do pedidoR$ 10,45`.
+
+sf.features.checkout.checkout-shell.CheckoutShell:
+  description: |
+    Frame of the checkout pages: a minimal header (logo, "Finalização da compra segura", cart link), the children, and a short footer.
+    `<div class="amazon-checkout-page" id="top">` with:
+    1. `<header class="az-checkout-header">`: `<Link href="/" aria-label="Página inicial"><AmazonLogo variant="light" /></Link>`;
+       `<span>Finalização da compra segura <svg class="az-checkout-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">`
+       holding a lock: `<rect x="5" y="10" width="14" height="11" rx="2" />`, `<path d="M8 10V7a4 4 0 0 1 8 0v3" />`,
+       `<path d="M12 14v3" />`, then `</svg></span>`; `<Link href="/cart">Carrinho</Link>`.
+    2. `children`.
+    3. `<footer class="az-checkout-footer">`: `<a href="#top" class="az-footer__back-to-top">Voltar ao início</a>`;
+       `<div>` with the same logo link and `<Link href="/help">Ajuda</Link>`;
+       `<p>Projeto acadêmico · Pagamentos simulados, sem cobrança real.</p>`.
+
+sf.features.checkout.pix-price.PixPrice:
+  description: |
+    "R$ X no Pix (5% de desconto)" line for an amount, with the checkout's rounding; renders nothing without a rate or a discount.
+    Return null when `percent` is null, undefined or 0. discount = `percentDiscountMinor(amountMinor, percent)`
+    (rounded down); return null when it is 0. Otherwise render
+    `<p>` with class `az-pix-price`, plus ` {className}` when one is given (no trailing space), containing
+    `{prefix}<strong>{formatCartMoney(amountMinor - discount, currency)}</strong> no Pix <span class="az-pix-price__rate">({percent}% de desconto)</span>`.
+    The text is then, for example, `R$ 312,55 no Pix (5% de desconto)` for 32900 at 5%, or
+    `ou R$ 35,17 no Pix (5% de desconto)` with prefix `ou ` for 3702. 20 at 5% gives `R$ 0,19`; 19 at
+    5% renders nothing (the discount rounds to 0).
+
+sf.features.checkout.pricing-server.getCheckoutPricing:
+  description: |
+    Pix discount rate from the API's checkout configuration (GET `/orders/pricing`), read once per request; null when it is not available.
+    Wrap the loader in React's `cache`. Fetch
+    `${getConfig().api.internalBaseUrl}${getConfig().api.publicBasePath}/orders/pricing` with
+    `{ cache: 'no-store' }`. A non-2xx status gives null. A body whose `pixDiscountPercent` is an
+    integer from 0 to 100 gives `{ pixDiscountPercent }` (other fields dropped); any other body gives
+    null. Any thrown error (configuration, network, JSON) gives null, so callers advertise no Pix price.

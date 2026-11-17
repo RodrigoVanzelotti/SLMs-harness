@@ -1,0 +1,3779 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Readiness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/addresses": {
+      "get": {
+        "operationId": "AddressesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountAddressDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "addresses"
+        ]
+      },
+      "post": {
+        "operationId": "AddressesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountAddressDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "addresses"
+        ]
+      }
+    },
+    "/api/v1/addresses/{addressId}": {
+      "put": {
+        "operationId": "AddressesController_update",
+        "parameters": [
+          {
+            "name": "addressId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountAddressDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "addresses"
+        ]
+      },
+      "delete": {
+        "operationId": "AddressesController_remove",
+        "parameters": [
+          {
+            "name": "addressId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountAddressDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Remove a saved address; returns the remaining addresses",
+        "tags": [
+          "addresses"
+        ]
+      }
+    },
+    "/api/v1/addresses/{addressId}/default": {
+      "post": {
+        "operationId": "AddressesController_setDefault",
+        "parameters": [
+          {
+            "name": "addressId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountAddressDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Make this the default address; returns every address",
+        "tags": [
+          "addresses"
+        ]
+      }
+    },
+    "/api/v1/payment-cards": {
+      "get": {
+        "operationId": "PaymentCardsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SavedPaymentCardDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "payment-cards"
+        ]
+      },
+      "post": {
+        "operationId": "PaymentCardsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCardInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPaymentCardDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Save a simulated card (brand, last four digits, holder, expiry; never the number)",
+        "tags": [
+          "payment-cards"
+        ]
+      }
+    },
+    "/api/v1/payment-cards/{cardId}": {
+      "delete": {
+        "operationId": "PaymentCardsController_remove",
+        "parameters": [
+          {
+            "name": "cardId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SavedPaymentCardDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Remove a saved card; returns the remaining cards",
+        "tags": [
+          "payment-cards"
+        ]
+      }
+    },
+    "/api/v1/auth/identify": {
+      "post": {
+        "operationId": "AuthController_identify",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentifyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentifyResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Check whether an email is already registered",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create an account and start a session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Exchange credentials for a session cookie",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Invalidate the current session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Return the signed-in user",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/protected/example": {
+      "get": {
+        "operationId": "ProtectedExampleController_example",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Example endpoint that requires a session",
+        "tags": [
+          "protected"
+        ]
+      }
+    },
+    "/api/v1/account/profile": {
+      "patch": {
+        "operationId": "AccountController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Change the display name of the signed-in account",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/v1/account/password": {
+      "post": {
+        "operationId": "AccountController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangePasswordResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong current password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Change the password; requires the current one and signs out other sessions",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/v1/account/email": {
+      "post": {
+        "operationId": "AccountController_changeEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Wrong current password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Change the sign-in e-mail; requires the current password and signs out other sessions",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/v1/catalog/products/{productId}": {
+      "get": {
+        "operationId": "CatalogController_detail",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "description": "Product UUID or slug",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogProductDetailsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/catalog/products": {
+      "get": {
+        "operationId": "CatalogController_list",
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Category slug; includes the whole subtree",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Text search, case- and accent-insensitive. Every word must appear in the name, the description or a category name of the product.",
+            "schema": {
+              "maxLength": 100,
+              "example": "fone bluetooth",
+              "type": "string"
+            }
+          },
+          {
+            "name": "slugs",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated product slugs (at most 48); only these products are listed",
+            "schema": {
+              "example": "p1,p6",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 48,
+              "default": 12,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "description": "relevance: text matches first (name > category > description), alphabetical without q; price-asc / price-desc: by priceMinor; newest: most recently created",
+            "schema": {
+              "default": "relevance",
+              "enum": [
+                "relevance",
+                "price-asc",
+                "price-desc",
+                "newest"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "minPriceMinor",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive minimum price, integer minor units",
+            "schema": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxPriceMinor",
+            "required": false,
+            "in": "query",
+            "description": "Exclusive maximum price, integer minor units",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "inStock",
+            "required": false,
+            "in": "query",
+            "description": "Only products with unreserved stock",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogPageDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/catalog/categories": {
+      "get": {
+        "operationId": "CatalogBrowseController_categories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogCategoryNodeDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/catalog/facets": {
+      "get": {
+        "operationId": "CatalogBrowseController_facets",
+        "parameters": [
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Category slug; includes the whole subtree",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Text search, case- and accent-insensitive. Every word must appear in the name, the description or a category name of the product.",
+            "schema": {
+              "maxLength": 100,
+              "example": "fone bluetooth",
+              "type": "string"
+            }
+          },
+          {
+            "name": "slugs",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated product slugs (at most 48); only these products are listed",
+            "schema": {
+              "example": "p1,p6",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogFacetsDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/cart": {
+      "get": {
+        "operationId": "CartController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "cart"
+        ]
+      }
+    },
+    "/api/v1/cart/items": {
+      "post": {
+        "operationId": "CartController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCartItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "cart"
+        ]
+      },
+      "delete": {
+        "operationId": "CartController_clear",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "cart"
+        ]
+      }
+    },
+    "/api/v1/cart/items/{productId}": {
+      "patch": {
+        "operationId": "CartController_update",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CartQuantityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "cart"
+        ]
+      },
+      "delete": {
+        "operationId": "CartController_remove",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "cart"
+        ]
+      }
+    },
+    "/api/v1/orders/pricing": {
+      "get": {
+        "operationId": "OrdersController_pricing",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutPricingDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/quote": {
+      "get": {
+        "operationId": "OrdersController_quote",
+        "parameters": [
+          {
+            "name": "paymentMethod",
+            "required": false,
+            "in": "query",
+            "description": "Payment method to price; SIMULATED_PIX applies the Pix discount",
+            "schema": {
+              "default": "SIMULATED_CARD",
+              "enum": [
+                "SIMULATED_CARD",
+                "SIMULATED_PIX"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutQuoteDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders": {
+      "post": {
+        "operationId": "OrdersController_place",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "orders"
+        ]
+      },
+      "get": {
+        "operationId": "OrdersController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}": {
+      "get": {
+        "operationId": "OrdersController_get",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/reviews": {
+      "get": {
+        "operationId": "ReviewsController_list",
+        "parameters": [
+          {
+            "name": "productIds",
+            "required": true,
+            "in": "query",
+            "description": "Comma-separated product UUIDs (at most 24), e.g. a variant family",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "helpful",
+              "enum": [
+                "helpful",
+                "recent"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "stars",
+            "required": false,
+            "in": "query",
+            "description": "Only reviews with this rating",
+            "schema": {
+              "minimum": 1,
+              "maximum": 5,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 20,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewPageDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/summary": {
+      "get": {
+        "operationId": "ReviewsController_summary",
+        "parameters": [
+          {
+            "name": "productIds",
+            "required": true,
+            "in": "query",
+            "description": "Comma-separated product UUIDs (at most 24), e.g. a variant family",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatingSummaryDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/summaries": {
+      "get": {
+        "operationId": "ReviewsController_summaries",
+        "parameters": [
+          {
+            "name": "productIds",
+            "required": true,
+            "in": "query",
+            "description": "Comma-separated product UUIDs (at most 48)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductRatingSummariesDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/viewer": {
+      "get": {
+        "operationId": "ReviewsController_viewer",
+        "parameters": [
+          {
+            "name": "productIds",
+            "required": true,
+            "in": "query",
+            "description": "Comma-separated product UUIDs (at most 24), e.g. a variant family",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewViewerStateDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/mine": {
+      "get": {
+        "operationId": "ReviewsController_mine",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnReviewDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "reviews"
+        ]
+      },
+      "put": {
+        "operationId": "ReviewsController_save",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Product not found"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/{reviewId}/helpful": {
+      "put": {
+        "operationId": "ReviewsController_helpful",
+        "parameters": [
+          {
+            "name": "reviewId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelpfulVoteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "REVIEW_SELF_VOTE: own review"
+          },
+          "404": {
+            "description": "Review not found"
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/lists": {
+      "get": {
+        "operationId": "ListsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ListSummaryDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Your lists; the default \"Lista de desejos\" is created on first use",
+        "tags": [
+          "lists"
+        ]
+      },
+      "post": {
+        "operationId": "ListsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListNameDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Too many lists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "lists"
+        ]
+      }
+    },
+    "/api/v1/lists/{listId}": {
+      "get": {
+        "operationId": "ListsController_get",
+        "parameters": [
+          {
+            "name": "listId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDetailsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "lists"
+        ]
+      },
+      "patch": {
+        "operationId": "ListsController_rename",
+        "parameters": [
+          {
+            "name": "listId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListNameDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "lists"
+        ]
+      },
+      "delete": {
+        "operationId": "ListsController_remove",
+        "parameters": [
+          {
+            "name": "listId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The default list is protected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "lists"
+        ]
+      }
+    },
+    "/api/v1/lists/{listId}/items": {
+      "post": {
+        "operationId": "ListsController_addItem",
+        "parameters": [
+          {
+            "name": "listId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddListItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDetailsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "List is full",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Add a product (idempotent)",
+        "tags": [
+          "lists"
+        ]
+      }
+    },
+    "/api/v1/lists/{listId}/items/{productId}": {
+      "delete": {
+        "operationId": "ListsController_removeItem",
+        "parameters": [
+          {
+            "name": "listId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDetailsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "lists"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Amazon MVP API",
+    "description": "Modular monolith API for the MVP skeleton. Sessions are opaque cookies.",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "auth",
+      "description": ""
+    },
+    {
+      "name": "health",
+      "description": ""
+    },
+    {
+      "name": "protected",
+      "description": ""
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "amzmvp_sid"
+      }
+    },
+    "schemas": {
+      "AccountAddressDto": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string",
+            "example": "90020060"
+          },
+          "street": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "complement": {
+            "type": "string"
+          },
+          "neighborhood": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "example": "54996704398",
+            "description": "DDD + número, digits only"
+          },
+          "deliveryInstructions": {
+            "type": "string",
+            "description": "Omit to keep the stored value; empty clears it"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "At most one address per account is the default"
+          }
+        },
+        "required": [
+          "recipient",
+          "postalCode",
+          "street",
+          "number",
+          "neighborhood",
+          "city",
+          "state",
+          "id",
+          "isDefault"
+        ]
+      },
+      "AddressInputDto": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string",
+            "example": "90020060"
+          },
+          "street": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "complement": {
+            "type": "string"
+          },
+          "neighborhood": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "example": "54996704398",
+            "description": "DDD + número, digits only"
+          },
+          "deliveryInstructions": {
+            "type": "string",
+            "description": "Omit to keep the stored value; empty clears it"
+          }
+        },
+        "required": [
+          "recipient",
+          "postalCode",
+          "street",
+          "number",
+          "neighborhood",
+          "city",
+          "state"
+        ]
+      },
+      "ApiErrorDetailDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "AUTH_INVALID_CREDENTIALS"
+          },
+          "message": {
+            "type": "string",
+            "example": "Invalid credentials"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "3f1a..."
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId"
+        ]
+      },
+      "ApiErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiErrorDetailDto"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "SavedPaymentCardDto": {
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string",
+            "enum": [
+              "VISA",
+              "MASTERCARD",
+              "ELO",
+              "AMEX",
+              "HIPERCARD"
+            ]
+          },
+          "last4": {
+            "type": "string",
+            "example": "1111"
+          },
+          "holderName": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "expMonth": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "expYear": {
+            "type": "number",
+            "minimum": 2000,
+            "maximum": 2099
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "brand",
+          "last4",
+          "holderName",
+          "expMonth",
+          "expYear",
+          "id"
+        ]
+      },
+      "PaymentCardInputDto": {
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string",
+            "enum": [
+              "VISA",
+              "MASTERCARD",
+              "ELO",
+              "AMEX",
+              "HIPERCARD"
+            ]
+          },
+          "last4": {
+            "type": "string",
+            "example": "1111"
+          },
+          "holderName": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "expMonth": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "expYear": {
+            "type": "number",
+            "minimum": 2000,
+            "maximum": 2099
+          }
+        },
+        "required": [
+          "brand",
+          "last4",
+          "holderName",
+          "expMonth",
+          "expYear"
+        ]
+      },
+      "IdentifyDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "ada@example.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "IdentifyResponseDto": {
+        "type": "object",
+        "properties": {
+          "exists": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "exists"
+        ]
+      },
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "ada@example.com",
+            "maxLength": 254
+          },
+          "password": {
+            "type": "string",
+            "example": "correct horse battery staple",
+            "minLength": 12,
+            "maxLength": 128
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Ada Lovelace",
+            "minLength": 2,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "displayName"
+        ]
+      },
+      "UserProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "createdAt"
+        ]
+      },
+      "SessionResponseDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserProfileDto"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "user",
+          "expiresAt"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "ada@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "correct horse battery staple"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "LogoutResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "success"
+        ]
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "example": "Ada Lovelace",
+            "minLength": 2,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "displayName"
+        ]
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "example": "correct horse battery staple"
+          },
+          "newPassword": {
+            "type": "string",
+            "example": "a different long passphrase",
+            "minLength": 12,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "ChangePasswordResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "revokedSessions": {
+            "type": "integer",
+            "description": "Other sessions that were signed out"
+          }
+        },
+        "required": [
+          "success",
+          "revokedSessions"
+        ]
+      },
+      "ChangeEmailDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "ada@example.com",
+            "maxLength": 254
+          },
+          "currentPassword": {
+            "type": "string",
+            "example": "correct horse battery staple"
+          }
+        },
+        "required": [
+          "email",
+          "currentPassword"
+        ]
+      },
+      "CatalogCategoryDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name"
+        ]
+      },
+      "CatalogProductDetailsDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "example": "BRL"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "availableQuantity": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "inStock": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogCategoryDto"
+            }
+          },
+          "categoryPath": {
+            "description": "Root-to-leaf ancestor chain of the most specific category (breadcrumb)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogCategoryDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "slug",
+          "name",
+          "description",
+          "priceMinor",
+          "currency",
+          "active",
+          "availableQuantity",
+          "inStock",
+          "categories",
+          "categoryPath"
+        ]
+      },
+      "CatalogItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceMinor": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "example": "BRL"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "availableQuantity": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "inStock": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "slug",
+          "name",
+          "description",
+          "priceMinor",
+          "currency",
+          "active",
+          "availableQuantity",
+          "inStock"
+        ]
+      },
+      "CatalogPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogItemDto"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ]
+      },
+      "CatalogCategoryNodeDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentSlug": {
+            "type": "string",
+            "nullable": true,
+            "description": "null for a root category"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "parentSlug"
+        ]
+      },
+      "CatalogPriceBucketDto": {
+        "type": "object",
+        "properties": {
+          "minMinor": {
+            "type": "integer",
+            "description": "Inclusive, integer minor units"
+          },
+          "maxMinor": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Exclusive, integer minor units; null for the open-ended last bucket"
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minMinor",
+          "maxMinor",
+          "count"
+        ]
+      },
+      "CatalogCategoryCountDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Matched products in the whole subtree"
+          }
+        },
+        "required": [
+          "slug",
+          "count"
+        ]
+      },
+      "CatalogFacetsDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "inStock": {
+            "type": "integer"
+          },
+          "priceBuckets": {
+            "description": "Buckets bounded by 5000, 10000, 20000, 50000, 100000, 200000 (minor units)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogPriceBucketDto"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogCategoryCountDto"
+            }
+          },
+          "slugs": {
+            "description": "Slugs of the matched products (capped), for presentation-only facets",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "slugsTruncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "total",
+          "inStock",
+          "priceBuckets",
+          "categories",
+          "slugs",
+          "slugsTruncated"
+        ]
+      },
+      "CartItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product": {
+            "$ref": "#/components/schemas/CatalogItemDto"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "unitPriceMinor": {
+            "type": "integer"
+          },
+          "lineTotalMinor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "productId",
+          "product",
+          "quantity",
+          "unitPriceMinor",
+          "lineTotalMinor"
+        ]
+      },
+      "CartResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CartItemDto"
+            }
+          },
+          "itemCount": {
+            "type": "integer"
+          },
+          "subtotalMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string",
+            "example": "BRL"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "lines",
+          "itemCount",
+          "subtotalMinor",
+          "currency"
+        ]
+      },
+      "AddCartItemDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "quantity",
+          "productId"
+        ]
+      },
+      "CartQuantityDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "CheckoutPricingDto": {
+        "type": "object",
+        "properties": {
+          "pixDiscountPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 5
+          },
+          "maxInstallments": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24,
+            "example": 10
+          },
+          "minInstallmentMinor": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 500
+          }
+        },
+        "required": [
+          "pixDiscountPercent",
+          "maxInstallments",
+          "minInstallmentMinor"
+        ]
+      },
+      "InstallmentOptionDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "installmentMinor": {
+            "type": "integer"
+          },
+          "firstInstallmentMinor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "installmentMinor",
+          "firstInstallmentMinor"
+        ]
+      },
+      "CheckoutQuoteDto": {
+        "type": "object",
+        "properties": {
+          "cart": {
+            "$ref": "#/components/schemas/CartResponseDto"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "subtotalMinor": {
+            "type": "number"
+          },
+          "shippingMinor": {
+            "type": "number"
+          },
+          "discountMinor": {
+            "type": "number"
+          },
+          "totalMinor": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": [
+              "SIMULATED_CARD",
+              "SIMULATED_PIX"
+            ]
+          },
+          "discountPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "installmentOptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InstallmentOptionDto"
+            }
+          }
+        },
+        "required": [
+          "cart",
+          "revision",
+          "subtotalMinor",
+          "shippingMinor",
+          "discountMinor",
+          "totalMinor",
+          "currency",
+          "paymentMethod",
+          "discountPercent",
+          "installmentOptions"
+        ]
+      },
+      "PlaceOrderDto": {
+        "type": "object",
+        "properties": {
+          "cartId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "string",
+            "description": "Revision of a quote for this same paymentMethod"
+          },
+          "addressId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "enum": [
+              "SIMULATED_CARD",
+              "SIMULATED_PIX"
+            ]
+          },
+          "cardId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "SIMULATED_CARD only: saved card id; omitted pays with the demo Visa 4242"
+          },
+          "installments": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24,
+            "default": 1,
+            "description": "SIMULATED_CARD only: one of the quote's installmentOptions"
+          }
+        },
+        "required": [
+          "cartId",
+          "revision",
+          "addressId",
+          "paymentMethod"
+        ]
+      },
+      "OrderPaymentCardDto": {
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string",
+            "enum": [
+              "VISA",
+              "MASTERCARD",
+              "ELO",
+              "AMEX",
+              "HIPERCARD"
+            ]
+          },
+          "last4": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "brand",
+          "last4"
+        ]
+      },
+      "OrderLineDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unitPriceMinor": {
+            "type": "number"
+          },
+          "lineTotalMinor": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "productId",
+          "productName",
+          "sku",
+          "quantity",
+          "unitPriceMinor",
+          "lineTotalMinor",
+          "currency"
+        ]
+      },
+      "OrderResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PAID",
+              "CANCELLED",
+              "FULFILLED"
+            ]
+          },
+          "subtotalMinor": {
+            "type": "number"
+          },
+          "shippingMinor": {
+            "type": "number"
+          },
+          "discountMinor": {
+            "type": "number"
+          },
+          "totalMinor": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "shippingAddress": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AddressInputDto"
+              }
+            ]
+          },
+          "paymentMethod": {
+            "type": "string",
+            "nullable": true
+          },
+          "paymentCard": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderPaymentCardDto"
+              }
+            ]
+          },
+          "installments": {
+            "type": "integer",
+            "nullable": true
+          },
+          "placedAt": {
+            "type": "string"
+          },
+          "deliveredAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "deliveryNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLineDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "orderNumber",
+          "status",
+          "subtotalMinor",
+          "shippingMinor",
+          "discountMinor",
+          "totalMinor",
+          "currency",
+          "shippingAddress",
+          "paymentMethod",
+          "paymentCard",
+          "installments",
+          "placedAt",
+          "deliveredAt",
+          "deliveryNote",
+          "lines"
+        ]
+      },
+      "ReviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "verifiedPurchase": {
+            "type": "boolean"
+          },
+          "helpfulCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "authorName",
+          "rating",
+          "title",
+          "body",
+          "verifiedPurchase",
+          "helpfulCount",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ReviewPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewDto"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "RatingBucketDto": {
+        "type": "object",
+        "properties": {
+          "stars": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "stars",
+          "percent"
+        ]
+      },
+      "RatingSummaryDto": {
+        "type": "object",
+        "properties": {
+          "average": {
+            "type": "number",
+            "nullable": true,
+            "example": 4.6
+          },
+          "count": {
+            "type": "integer"
+          },
+          "distribution": {
+            "nullable": true,
+            "description": "5 stars first; null when part of the aggregate has no known distribution",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RatingBucketDto"
+            }
+          }
+        },
+        "required": [
+          "average",
+          "count",
+          "distribution"
+        ]
+      },
+      "ProductRatingSummaryDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "average": {
+            "type": "number",
+            "nullable": true
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "productId",
+          "average",
+          "count"
+        ]
+      },
+      "ProductRatingSummariesDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductRatingSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "OwnReviewRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "productId"
+        ]
+      },
+      "ReviewViewerStateDto": {
+        "type": "object",
+        "properties": {
+          "ownReviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OwnReviewRefDto"
+            }
+          },
+          "helpfulReviewIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ownReviews",
+          "helpfulReviewIds"
+        ]
+      },
+      "OwnReviewDto": {
+        "type": "object",
+        "properties": {
+          "review": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewDto"
+              }
+            ]
+          },
+          "verifiedPurchase": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "review",
+          "verifiedPurchase"
+        ]
+      },
+      "SaveReviewDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120
+          },
+          "body": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 5000
+          }
+        },
+        "required": [
+          "productId",
+          "rating",
+          "title",
+          "body"
+        ]
+      },
+      "HelpfulVoteDto": {
+        "type": "object",
+        "properties": {
+          "reviewId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "helpfulCount": {
+            "type": "integer"
+          },
+          "voted": {
+            "type": "number",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "reviewId",
+          "helpfulCount",
+          "voted"
+        ]
+      },
+      "ListSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "itemCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isDefault",
+          "itemCount",
+          "createdAt"
+        ]
+      },
+      "ListNameDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Presentes",
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ListItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "product": {
+            "$ref": "#/components/schemas/CatalogItemDto"
+          }
+        },
+        "required": [
+          "productId",
+          "addedAt",
+          "product"
+        ]
+      },
+      "ListDetailsDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "itemCount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListItemDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "isDefault",
+          "itemCount",
+          "createdAt",
+          "items"
+        ]
+      },
+      "AddListItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "productId"
+        ]
+      }
+    }
+  }
+}

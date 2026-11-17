@@ -1,0 +1,680 @@
+# Descriptions for the Next.js route files under apps/storefront/src/app (group sf-app).
+# Route keys and their features come from config/features.yaml; FeatureRoute shows
+# Coming Soon (h1 = its `title`) or 404s when the bound feature is off.
+
+# ---------------------------------------------------------------------------
+# Corporate footer pages (features/corporate). Tests import each page module and
+# render the default export synchronously, and call generateMetadata() directly.
+# ---------------------------------------------------------------------------
+
+sf.app.about.page.generateMetadata:
+  description: |
+    Metadata for `/about`: return `corporateMetadata('about')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.about.page.AboutPage:
+  description: |
+    Route `/about`: renders the "Sobre a Amazon" corporate page through `CorporatePageShell`, behind route key `about`.
+    Return `<CorporatePageShell pageKey="about" />` wrapped in `FeatureRoute` with `routeKey="about"` and `title="Sobre a Amazon"`.
+    The shell brings the Amazon header, the page body and the footer. When the `about` feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.accessibility.page.generateMetadata:
+  description: |
+    Metadata for `/accessibility`: return `corporateMetadata('accessibility')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.accessibility.page.AccessibilityPage:
+  description: |
+    Route `/accessibility`: renders the "Acessibilidade" corporate page through `CorporatePageShell`, behind route key `accessibility`.
+    Return `<CorporatePageShell pageKey="accessibility" />` wrapped in `FeatureRoute` with `routeKey="accessibility"` and `title="Acessibilidade"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.advertise.page.generateMetadata:
+  description: |
+    Metadata for `/advertise`: return `corporateMetadata('advertise')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.advertise.page.AdvertisePage:
+  description: |
+    Route `/advertise`: renders the "Anuncie seus produtos" corporate page through `CorporatePageShell`, behind route key `advertise`.
+    Return `<CorporatePageShell pageKey="advertise" />` wrapped in `FeatureRoute` with `routeKey="advertise"` and `title="Anuncie seus produtos"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.amazon-science.page.generateMetadata:
+  description: |
+    Metadata for `/amazon-science`: return `corporateMetadata('amazonScience')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.amazon-science.page.AmazonSciencePage:
+  description: |
+    Route `/amazon-science`: renders the "Amazon Science" corporate page through `CorporatePageShell`, behind route key `amazonScience`.
+    Return `<CorporatePageShell pageKey="amazonScience" />` wrapped in `FeatureRoute` with `routeKey="amazonScience"` and `title="Amazon Science"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.associates.page.generateMetadata:
+  description: |
+    Metadata for `/associates`: return `corporateMetadata('associates')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.associates.page.AssociatesPage:
+  description: |
+    Route `/associates`: renders the "Seja um associado" corporate page through `CorporatePageShell`, behind route key `associates`.
+    Return `<CorporatePageShell pageKey="associates" />` wrapped in `FeatureRoute` with `routeKey="associates"` and `title="Seja um associado"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.brand-protection.page.generateMetadata:
+  description: |
+    Metadata for `/brand-protection`: return `corporateMetadata('brandProtection')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.brand-protection.page.BrandProtectionPage:
+  description: |
+    Route `/brand-protection`: renders the "Proteja e construa a sua marca" corporate page through `CorporatePageShell`, behind route key `brandProtection`.
+    Return `<CorporatePageShell pageKey="brandProtection" />` wrapped in `FeatureRoute` with `routeKey="brandProtection"` and `title="Proteja e construa a sua marca"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.careers.page.generateMetadata:
+  description: |
+    Metadata for `/careers`: return `corporateMetadata('careers')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.careers.page.CareersPage:
+  description: |
+    Route `/careers`: renders the "Carreiras" corporate page through `CorporatePageShell`, behind route key `careers`.
+    Return `<CorporatePageShell pageKey="careers" />` wrapped in `FeatureRoute` with `routeKey="careers"` and `title="Carreiras"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.community.page.generateMetadata:
+  description: |
+    Metadata for `/community`: return `corporateMetadata('community')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.community.page.CommunityPage:
+  description: |
+    Route `/community`: renders the "Comunidade" corporate page through `CorporatePageShell`, behind route key `community`.
+    Return `<CorporatePageShell pageKey="community" />` wrapped in `FeatureRoute` with `routeKey="community"` and `title="Comunidade"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.corporate-information.page.generateMetadata:
+  description: |
+    Metadata for `/corporate-information`: return `corporateMetadata('corporateInformation')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.corporate-information.page.CorporateInformationPage:
+  description: |
+    Route `/corporate-information`: renders the "Informações corporativas" corporate page through `CorporatePageShell`, behind route key `corporateInformation`.
+    Return `<CorporatePageShell pageKey="corporateInformation" />` wrapped in `FeatureRoute` with `routeKey="corporateInformation"` and `title="Informações corporativas"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.press.page.generateMetadata:
+  description: |
+    Metadata for `/press`: return `corporateMetadata('press')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off, and a test checks that.
+
+sf.app.press.page.PressPage:
+  description: |
+    Route `/press`: renders the "Comunicados à imprensa" corporate page through `CorporatePageShell`, behind route key `press`.
+    Return `<CorporatePageShell pageKey="press" />` wrapped in `FeatureRoute` with `routeKey="press"` and `title="Comunicados à imprensa"`.
+    A test switches the `press` flag off and expects Coming Soon with the `h1` `Comunicados à imprensa` and no footer.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.publish.page.generateMetadata:
+  description: |
+    Metadata for `/publish`: return `corporateMetadata('publish')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.publish.page.PublishPage:
+  description: |
+    Route `/publish`: renders the "Publique seus livros" corporate page through `CorporatePageShell`, behind route key `publish`.
+    Return `<CorporatePageShell pageKey="publish" />` wrapped in `FeatureRoute` with `routeKey="publish"` and `title="Publique seus livros"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+sf.app.supply.page.generateMetadata:
+  description: |
+    Metadata for `/supply`: return `corporateMetadata('supply')`.
+    Synchronous, no arguments. The helper returns `{}` while the page's flag is off.
+
+sf.app.supply.page.SupplyPage:
+  description: |
+    Route `/supply`: renders the "Forneça para a Amazon" corporate page through `CorporatePageShell`, behind route key `supply`.
+    Return `<CorporatePageShell pageKey="supply" />` wrapped in `FeatureRoute` with `routeKey="supply"` and `title="Forneça para a Amazon"`.
+    When the feature is off, `FeatureRoute` shows Coming Soon with that title as its `h1`.
+    This is a plain synchronous component with no props and no data loading, because tests render it directly.
+
+# ---------------------------------------------------------------------------
+# Help and payment articles (features/customer-pages). A test reads each page's
+# source for the literal routeKey="..." attribute.
+# ---------------------------------------------------------------------------
+
+sf.app.content-and-devices.page.ContentAndDevicesPage:
+  description: |
+    Route `/content-and-devices`: the "Gerencie seu conteúdo e dispositivos" help article, behind route key `contentAndDevices`.
+    Return `<CustomerPageLayout page={CUSTOMER_PAGES.contentAndDevices} />` wrapped in `FeatureRoute` with `routeKey="contentAndDevices"` and `title="Gerencie seu conteúdo e dispositivos"`.
+    The component is synchronous and loads no data. The provided `metadata` export already calls `customerPageMetadata('contentAndDevices')`.
+    Write the attribute literally as `routeKey="contentAndDevices"`, because a test searches the page source for that exact text.
+
+sf.app.credit-card.page.CreditCardPage:
+  description: |
+    Route `/credit-card`: the "Cartão de crédito Amazon" help article, behind route key `creditCard`.
+    Return `<CustomerPageLayout page={CUSTOMER_PAGES.creditCard} />` wrapped in `FeatureRoute` with `routeKey="creditCard"` and `title="Cartão de crédito Amazon"`.
+    The component is synchronous and loads no data. The provided `metadata` export already calls `customerPageMetadata('creditCard')`.
+    Write the attribute literally as `routeKey="creditCard"`, because a test searches the page source for that exact text.
+
+sf.app.points.page.PointsPage:
+  description: |
+    Route `/points`: the "Compre com Pontos" help article, behind route key `points`.
+    Return `<CustomerPageLayout page={CUSTOMER_PAGES.points} />` wrapped in `FeatureRoute` with `routeKey="points"` and `title="Compre com Pontos"`.
+    The component is synchronous and loads no data. The provided `metadata` export already calls `customerPageMetadata('points')`.
+    Write the attribute literally as `routeKey="points"`, because a test searches the page source for that exact text.
+
+sf.app.recalls.page.RecallsPage:
+  description: |
+    Route `/recalls`: the "Recalls e alertas de segurança do produto" help article, behind route key `recalls`.
+    Return `<CustomerPageLayout page={CUSTOMER_PAGES.recalls} />` wrapped in `FeatureRoute` with `routeKey="recalls"` and `title="Recalls e alertas de segurança do produto"`.
+    The component is synchronous and loads no data. The provided `metadata` export already calls `customerPageMetadata('recalls')`.
+    Write the attribute literally as `routeKey="recalls"`, because a test searches the page source for that exact text.
+
+sf.app.returns.page.ReturnsPage:
+  description: |
+    Route `/returns`: the "Devoluções e reembolsos" help article, behind route key `returns`.
+    Return `<CustomerPageLayout page={CUSTOMER_PAGES.returns} />` wrapped in `FeatureRoute` with `routeKey="returns"` and `title="Devoluções e reembolsos"`.
+    The component is synchronous and loads no data. The provided `metadata` export already calls `customerPageMetadata('returns')`.
+    Write the attribute literally as `routeKey="returns"`, because a test searches the page source for that exact text.
+
+sf.app.shipping.page.ShippingPage:
+  description: |
+    Route `/shipping`: the "Frete e prazo de entrega" help article, behind route key `shipping`.
+    Return `<CustomerPageLayout page={CUSTOMER_PAGES.shipping} />` wrapped in `FeatureRoute` with `routeKey="shipping"` and `title="Frete e prazo de entrega"`.
+    The component is synchronous and loads no data. The provided `metadata` export already calls `customerPageMetadata('shipping')`.
+    Write the attribute literally as `routeKey="shipping"`, because a test searches the page source for that exact text.
+
+sf.app.payment-methods.page.PaymentMethodsPage:
+  description: |
+    Route `/payment-methods`: the "Meios de pagamento" help article, with the visitor's recent payment transactions filled into its `transactions` slot.
+    Return `FeatureRoute` with `routeKey="paymentMethods"` and `title="Meios de pagamento"`. Its only child is a separate async server component that you write in this file, so the lookups run only when the route is enabled. That component does this:
+    1. `session = await getServerSession()`.
+    2. `orders = session ? await fetchOrders() : null`.
+    3. It renders `CustomerPageLayout` with `page={CUSTOMER_PAGES.paymentMethods}` and `slots={{ transactions: <PaymentTransactions signedIn={Boolean(session)} orders={orders} /> }}`.
+    Guests are not redirected. The provided `metadata` export already calls `customerPageMetadata('paymentMethods')`.
+    Write the attribute literally as `routeKey="paymentMethods"`, because a test searches the page source for that exact text.
+
+# ---------------------------------------------------------------------------
+# Legal documents (features/legal).
+# ---------------------------------------------------------------------------
+
+sf.app.conditions-of-use.page.ConditionsOfUsePage:
+  description: |
+    Route `/conditions-of-use`: the Amazon conditions-of-use document, rendered by `LegalPageLayout`, behind route key `conditionsOfUse`.
+    Return `<LegalPageLayout doc={CONDITIONS_OF_USE} />` wrapped in `FeatureRoute` with `routeKey="conditionsOfUse"` and `title={CONDITIONS_OF_USE.title}`.
+    The component is synchronous and loads no data. The provided `metadata` export covers the title.
+    Write the attribute literally as `routeKey="conditionsOfUse"`, because a test searches the page source for that exact text.
+
+sf.app.privacy.page.PrivacyPage:
+  description: |
+    Route `/privacy`: the Amazon privacy notice, rendered by `LegalPageLayout`, behind route key `privacyNotice`.
+    Return `<LegalPageLayout doc={PRIVACY_NOTICE} />` wrapped in `FeatureRoute` with `routeKey="privacyNotice"` and `title={PRIVACY_NOTICE.title}`.
+    The component is synchronous and loads no data. The provided `metadata` export covers the title.
+    Write the attribute literally as `routeKey="privacyNotice"`, because a test searches the page source for that exact text.
+
+# ---------------------------------------------------------------------------
+# Account area ("Sua conta") destinations (features/account).
+# ---------------------------------------------------------------------------
+
+sf.app.account.page.AccountPage:
+  description: |
+    Route `/account` ("Sua conta"): the signed-in hub, with one link card per account area. Guests are redirected to `/login`.
+    It is not wrapped in `FeatureRoute`, because the hub belongs to the always-on authentication slice.
+    - `session = await getServerSession()`. When it is null, `redirect('/login')`.
+    - Markup: `<div className="amazon-account-page">` containing `<AmazonHeader />` (no props), `<main className="az-account-main">` and `<AmazonFooter />`.
+    - Inside main: `<h1 className="az-account-main__title">Sua conta</h1>`, then `<div className="az-account-grid">` with one entry per item of the provided `CARDS` array, in array order.
+    - Each entry is a `Link` with key = title, `href` = the card's href and `className="az-account-card"`. It contains `<span className="az-account-card__icon"><AccountIcon type={icon} /></span>`, followed by a plain `<span>` holding `<span className="az-account-card__title">{title}</span>` and `<span className="az-account-card__desc">{description}</span>`.
+
+sf.app.addresses.page.AddressesPage:
+  description: |
+    Route `/addresses` ("Seus endereços"): the signed-in address book, where `?add=1` opens the new-address form straight away.
+    - `adding` is true only when `searchParams[ADD_ADDRESS_PARAM] === '1'`, so an array value or any other string means false.
+    - Return `FeatureRoute` with `routeKey="addresses"` and `title="Seus endereços"`. Its only child is a separate async server component that you write in this file and give `adding`. This keeps the session and address lookups from running when the route is disabled.
+    That component does this:
+    1. `session = await requireAccountSession(adding ? ADD_ADDRESS_HREF : '/addresses')`. Guests go to login and come back to that path.
+    2. `addresses = await fetchAddresses()`.
+    3. It renders `AccountShell` with `title="Seus endereços"` and `wide`. Inside the shell:
+       - When `addresses` is non-null, `<AddressesManager initial={addresses} name={session.user.displayName} startAdding={adding} />`.
+       - When it is null, `<p className="az-acct-error" role="alert">Não foi possível carregar seus endereços agora. Tente novamente em instantes.</p>`.
+
+sf.app.lists.page.ListsPage:
+  description: |
+    Route `/lists` ("Suas listas"): the signed-in shopping and wish lists, showing the list chosen by `?list=<id>`, or the first list.
+    Return `FeatureRoute` with `routeKey="lists"` and `title="Suas listas"`. Its only child is a separate async server component that you write in this file and give `searchParams`. That component does this:
+    1. `requested` = `searchParams.list` when it is a string, else undefined.
+    2. `await requireAccountSession(requested ? listHref(requested) : '/lists')`.
+    3. `lists = await fetchLists()`. The API also creates the default list on the first visit.
+    4. `selectedId = requested ?? lists?.[0]?.id`.
+    5. `selected = lists && selectedId ? await fetchList(selectedId) : null`.
+    6. When `selected === 'not-found'` (the list was deleted or belongs to someone else), `redirect('/lists')`.
+    7. It renders `AccountShell` with `title="Suas listas"` and `wide`. Inside the shell:
+       - When both `lists` and `selected` are present, `<ListsView key={selected.id} lists={lists} initial={selected} />`.
+       - Otherwise `<p className="az-acct-error" role="alert">Não foi possível carregar suas listas agora. Tente novamente em instantes.</p>`.
+
+sf.app.security.page.SecurityPage:
+  description: |
+    Route `/security` ("Acesso e segurança"): the signed-in profile, e-mail and password settings, with a "Concluído" link back to the account hub.
+    Return `FeatureRoute` with `routeKey="security"` and `title="Acesso e segurança"`. Its only child is a separate async server component that you write in this file. That component does this:
+    1. `session = await requireAccountSession('/security')`.
+    2. It renders `AccountShell` with `title="Acesso e segurança"`, containing `<SecuritySettings user={session.user} />` and then `<Link href="/account" className="az-acct-button az-acct-button--primary az-acct-done">Concluído</Link>`.
+
+sf.app.gift-cards.page.GiftCardsPage:
+  description: |
+    Route `/gift-cards` ("Vales-presente"): an informational account page with empty panels, because the store has no gift cards.
+    Return `FeatureRoute` with `routeKey="giftCards"` and `title="Vales-presente"`. Its only child is a separate async server component that you write in this file, so the session check runs only when the route is enabled. That component does this:
+    1. `await requireAccountSession('/gift-cards')`.
+    2. It renders `AccountShell` with `title="Vales-presente"`, containing in order:
+       - `AcademicNotice` with two paragraphs: `<p><strong>Vales-presente não estão disponíveis nesta loja acadêmica.</strong></p>` and `<p>Não é possível comprar, resgatar ou usar códigos de vale-presente aqui. Por isso esta página não oferece campo de resgate nem exibe saldo.</p>`.
+       - `EmptyPanel` with heading `Saldo do vale-presente` and message `Você não tem vales-presente.`
+       - `EmptyPanel` with heading `Resgatar um vale-presente` and message `O resgate de códigos não está disponível.` Its child is `<p className="az-acct-muted">Nenhum código pode ser aplicado à sua conta nesta loja.</p>`.
+       - `EmptyPanel` with heading `Atividade do vale-presente` and message `Nenhuma atividade de vale-presente.`
+
+sf.app.messages.page.MessagesPage:
+  description: |
+    Route `/messages` ("Suas mensagens"): an informational account page whose three mailboxes are empty, because the store sends no messages.
+    Return `FeatureRoute` with `routeKey="messages"` and `title="Suas mensagens"`. Its only child is a separate async server component that you write in this file. That component does this:
+    1. `await requireAccountSession('/messages')`.
+    2. It renders `AccountShell` with `title="Suas mensagens"`, containing in order:
+       - `AcademicNotice` with two paragraphs. The first is `<p><strong>A central de mensagens não está disponível nesta loja acadêmica.</strong></p>`. The second is `<p>` with `Esta loja não envia notificações nem tem troca de mensagens com vendedores ou compradores. O andamento de cada compra aparece em `, then `<Link href="/orders">Seus pedidos</Link>`, then `.`.
+       - Three `EmptyPanel`s, each with the message `Nenhuma mensagem.` Their headings are `Mensagens da Amazon`, `Mensagens de vendedores` and `Mensagens de compradores`, in that order.
+
+sf.app.prime.page.PrimePage:
+  description: |
+    Route `/prime` ("Sua assinatura Prime"): an informational account page with empty panels, because the store sells no memberships.
+    Return `FeatureRoute` with `routeKey="prime"` and `title="Sua assinatura Prime"`. Its only child is a separate async server component that you write in this file. That component does this:
+    1. `await requireAccountSession('/prime')`.
+    2. It renders `AccountShell` with `title="Sua assinatura Prime"`, containing in order:
+       - `AcademicNotice` with two paragraphs: `<p><strong>O Amazon Prime não está disponível nesta loja acadêmica.</strong></p>` and `<p>Aqui não é possível assinar, renovar ou cancelar o Prime, e nenhuma cobrança de assinatura é feita. Frete e prazos exibidos nos pedidos seguem as regras do checkout acadêmico.</p>`.
+       - `EmptyPanel` with heading `Sua assinatura` and message `Você não é membro Prime.` Its child is `<p className="az-acct-muted">Não há plano, data de renovação ou forma de pagamento associados.</p>`.
+       - `EmptyPanel` with heading `Benefícios Prime` and message `Nenhum benefício Prime está ativo na sua conta.`
+       - `EmptyPanel` with heading `Configurações de pagamento da assinatura` and message `Nenhuma forma de pagamento está vinculada a uma assinatura.` Its child is `<p className="az-acct-muted">` with `Consulte o que você já comprou em `, then `<Link href="/orders">Seus pedidos</Link>`, then `.`.
+
+sf.app.refunds.page.RefundsPage:
+  description: |
+    Route `/refunds` ("Reembolsos Boleto/Pix"): an informational account page with empty panels, because simulated payments are never refunded.
+    Return `FeatureRoute` with `routeKey="refunds"` and `title="Reembolsos Boleto/Pix"`. Its only child is a separate async server component that you write in this file. That component does this:
+    1. `await requireAccountSession('/refunds')`.
+    2. It renders `AccountShell` with `title="Reembolsos Boleto/Pix"`, containing in order:
+       - `AcademicNotice` with two paragraphs: `<p><strong>Reembolsos não são processados nesta loja acadêmica.</strong></p>` and `<p>Os pagamentos do checkout (cartão ou Pix) são simulados: nenhum dinheiro é cobrado e, por isso, nenhum valor é devolvido. Boleto não é oferecido.</p>`.
+       - `EmptyPanel` with heading `Saldo de reembolsos` and message `Você não tem reembolsos de Boleto ou Pix.`
+       - `EmptyPanel` with heading `Histórico de reembolsos` and message `Nenhum reembolso foi solicitado.` Its child is `<p className="az-acct-muted">` with `Para ver o que você comprou, acesse `, then `<Link href="/orders">Seus pedidos</Link>`, then `.`.
+
+sf.app.subscribe-and-save.page.SubscribeAndSavePage:
+  description: |
+    Route `/subscribe-and-save` ("Programe e Poupe"): an informational account page with empty panels, because there are no recurring deliveries.
+    Return `FeatureRoute` with `routeKey="subscribeAndSave"` and `title="Programe e Poupe"`. Its only child is a separate async server component that you write in this file. That component does this:
+    1. `await requireAccountSession('/subscribe-and-save')`.
+    2. It renders `AccountShell` with `title="Programe e Poupe"`, containing in order:
+       - `AcademicNotice` with two paragraphs. The first is `<p><strong>O Programe e Poupe não está disponível nesta loja acadêmica.</strong></p>`. The second is `<p>` with `Não há entregas recorrentes nem descontos por assinatura. Para comprar, adicione os produtos ao `, then `<Link href="/cart">carrinho</Link>`, then ` e finalize um pedido normalmente.`.
+       - `EmptyPanel` with heading `Próximas entregas` and message `Nenhuma entrega programada.`
+       - `EmptyPanel` with heading `Suas assinaturas do Programe e Poupe` and message `Você não tem assinaturas do Programe e Poupe.`
+
+sf.app.subscriptions.page.SubscriptionsPage:
+  description: |
+    Route `/subscriptions` ("Inscrições e assinaturas"): an informational account page with empty panels, because no digital subscriptions are sold.
+    Return `FeatureRoute` with `routeKey="subscriptions"` and `title="Inscrições e assinaturas"`. Its only child is a separate async server component that you write in this file. That component does this:
+    1. `await requireAccountSession('/subscriptions')`.
+    2. It renders `AccountShell` with `title="Inscrições e assinaturas"`, containing in order:
+       - `AcademicNotice` with two paragraphs: `<p><strong>Assinaturas digitais não estão disponíveis nesta loja acadêmica.</strong></p>` and `<p>Esta loja vende apenas produtos físicos do catálogo. Não há serviços digitais, canais ou assinaturas recorrentes para gerenciar ou cancelar.</p>`.
+       - `EmptyPanel` with heading `Assinaturas ativas` and message `Você não tem assinaturas digitais.`
+       - `EmptyPanel` with heading `Assinaturas inativas` and message `Nenhuma assinatura encerrada.`
+
+# ---------------------------------------------------------------------------
+# Help, account issues and sell landing (own Amazon chrome and a local font).
+# ---------------------------------------------------------------------------
+
+sf.app.account-issues.page.AccountIssuesPage:
+  description: |
+    Route `/account-issues`: the "Problemas na conta e de login" help page, linked from "Precisa de ajuda?" on `/login`, behind route key `accountIssues`.
+    Return `FeatureRoute` with `routeKey="accountIssues"` and `title={TITLE}`, using the provided `TITLE` constant. Its child is `<div className={`amazon-issues-page ${issuesFont.variable}`} id="top">`, using the provided `issuesFont`. The div contains, in order, `<AmazonHeader />` (no props), `<AccountIssues />` and `<AmazonFooter />`.
+    The component is synchronous and loads no data. The `metadata` export is provided.
+
+sf.app.help.page.HelpPage:
+  description: |
+    Route `/help` ("Atendimento ao Cliente"): the customer help center, greeting the signed-in user by first name and showing their recently ordered products.
+    Return `FeatureRoute` with `routeKey="help"` and `title="Atendimento ao Cliente"`. Its only child is a separate async server component that you write in this file, so the session and orders lookups run only when the route is enabled. That component does this:
+    1. `session = await getServerSession()`. A guest is allowed.
+    2. `firstName = session?.user.displayName.split(' ')[0]`, which is undefined for guests.
+    3. `products = await getRecentProducts(Boolean(session))`.
+    4. It renders `<div className={`amazon-help-page ${helpFont.variable}`} id="top">`, using the provided `helpFont`. The div contains, in order: `<AmazonHeader currentHref="/help" />`, `<CustomerServiceBar currentHref="/help" />`, `<HelpCenter firstName={firstName} products={products} />` and `<AmazonFooter />`.
+
+sf.app.sell.page.SellPage:
+  description: |
+    Route `/sell` ("Venda na Amazon"): the seller landing page with the Amazon header and footer, behind route key `sell`.
+    Return `FeatureRoute` with `routeKey="sell"` and `title="Venda na Amazon"`. Its child is `<div className={`amazon-sell-page ${sellFont.variable}`} id="top">`, using the provided `sellFont`. The div contains, in order, `<AmazonHeader currentHref="/sell" />`, `<SellLanding />` and `<AmazonFooter />`.
+    The component is synchronous and loads no data.
+
+# ---------------------------------------------------------------------------
+# Authentication.
+# ---------------------------------------------------------------------------
+
+sf.app.login.page.LoginPage:
+  description: |
+    Route `/login`: the chrome-free Amazon sign-in screen (logo, identifier form, legal footer). A visitor who is already signed in goes to `/account`.
+    - First, `if (await getServerSession()) redirect('/account')`. This check runs before `FeatureRoute`.
+    - Return `FeatureRoute` with `routeKey="login"` and `title="Faça login ou crie uma conta"`, wrapping `<main className="amazon-login">`, which contains in order:
+      1. `<Link href="/" className="amazon-login__logo" aria-label="Amazon">` containing `<AmazonLogo />` (default props).
+      2. `<LoginIdentifierForm />`.
+      3. `<footer className="amazon-login__footer">`, containing first `<nav className="amazon-login__footer-links" aria-label="Amazon">` with these five links, in order:
+         - `<Link href="/conditions-of-use">Condições de uso</Link>`
+         - `<Link href="/privacy">Notificação de privacidade</Link>`
+         - `<a href="#">Ajuda</a>`
+         - `<a href="#">Cookies</a>`
+         - `<a href="#">Anúncios Baseados em Interesses</a>`
+         After the nav comes `<p className="amazon-login__footer-copyright">© 1996-2026, Amazon.com, Inc. ou suas afiliadas</p>`.
+    A test reads this file's source. It must contain the two legal links exactly as written above, with the opening tag immediately followed by the text on the same line: `<Link href="/conditions-of-use">Condições de uso` and `<Link href="/privacy">Notificação de privacidade`.
+
+sf.app.register.page.RegisterPage:
+  description: |
+    Route `/register` ("Criar conta"): the chrome-free account creation screen, prefilled with `?email=`. A visitor who is already signed in goes to `/account`.
+    - First, `if (await getServerSession()) redirect('/account')`. This check runs before `FeatureRoute`.
+    - Return `FeatureRoute` with `routeKey="register"` and `title="Criar conta"`, wrapping `<main className="amazon-login">`, which contains in order:
+      1. `<Link href="/" className="amazon-login__logo" aria-label="Amazon">` containing `<AmazonLogo />` (default props).
+      2. `<div className="amazon-card">`, containing in order:
+         - `<h1 className="amazon-card__title">Criar conta</h1>`
+         - `<AuthForm mode="register" initialEmail={searchParams.email} />`
+         - `<hr className="amazon-hr" />`
+         - `<div className="amazon-note">` with `<p className="amazon-note__title">Já é cliente?</p>` and `<Link href="/login">Faça login</Link>`
+      3. The same footer as `/login`: `<footer className="amazon-login__footer">`, containing first `<nav className="amazon-login__footer-links" aria-label="Amazon">` with these five links, in order:
+         - `<Link href="/conditions-of-use">Condições de uso</Link>`
+         - `<Link href="/privacy">Notificação de privacidade</Link>`
+         - `<a href="#">Ajuda</a>`
+         - `<a href="#">Cookies</a>`
+         - `<a href="#">Anúncios Baseados em Interesses</a>`
+         After the nav comes `<p className="amazon-login__footer-copyright">© 1996-2026, Amazon.com, Inc. ou suas afiliadas</p>`.
+    A test reads this file's source. It must contain the two legal links exactly as written above, with the opening tag immediately followed by the text on the same line: `<Link href="/conditions-of-use">Condições de uso` and `<Link href="/privacy">Notificação de privacidade`.
+
+# ---------------------------------------------------------------------------
+# Home, cart, checkout, orders.
+# ---------------------------------------------------------------------------
+
+sf.app.page.HomePage:
+  description: |
+    Route `/`: the Amazon-style home page, with a hero and catalog-backed product shelves; a signed-in user's recent orders take the first collection slot.
+    Data, loaded before rendering:
+    - `orders`: when `isFeatureEnabled('orders')` is true and `await getServerSession()` returns a session, `(await fetchOrders()) ?? []`. Otherwise `[]`, and `fetchOrders` is not called.
+    - `curated`: `HOME_COLLECTIONS` without its last entry (`.slice(0, -1)`) when there are orders, else all of `HOME_COLLECTIONS`.
+    - `resolve = await resolveHomeProducts([DEALS_OF_THE_DAY, BEST_SELLERS, RECOMMENDED, ALSO_CONSIDER, ...curated.map((c) => c.products)])`.
+    - `collections`: each curated collection with `products` replaced by `resolve(products)`. Collections whose resolved list is empty are dropped.
+    Markup: `FeatureRoute` with `routeKey="home"` and `title="Home"` (the route 404s when off). It wraps `<div className="amazon-home" id="top">`, which contains in order:
+    1. `<AmazonHeader />`.
+    2. `<main className="az-main">`, containing `<HeroBanner />` and then `<div className="az-content">` with:
+       - `ProductSection` with title `Ofertas do dia` and `products={resolve(DEALS_OF_THE_DAY)}`.
+       - `CategorySection` with title `Compre por categoria` and `categories={CATEGORIES}`.
+       - `ProductCollections` with `collections` and `leading` = `<RecentOrdersCard orders={orders} />` when there are orders, else undefined.
+       - `ProductSection` with title `Mais vendidos` and `resolve(BEST_SELLERS)`.
+       - `<div className="az-home-ending">` holding a `ProductSection` with title `Recomendados para você` (`resolve(RECOMMENDED)`) and a `ProductSection` with title `Confira também` (`resolve(ALSO_CONSIDER)`).
+    3. `<AmazonFooter />`.
+
+sf.app.cart.page.CartPage:
+  description: |
+    Route `/cart` ("Carrinho"): renders `CartContent` with up to 12 catalog suggestions and the Pix rate, or Coming Soon when the cart is off.
+    - When `isFeatureEnabled('cart')` is false, return `<FeatureRoute routeKey="cart" title="Carrinho">{null}</FeatureRoute>`, which shows Coming Soon, and load nothing.
+    - Otherwise, with `config = getConfig()`, fetch `${config.api.internalBaseUrl}${config.api.publicBasePath}/catalog/products?pageSize=12` with `{ cache: 'no-store' }`.
+      - A non-ok response or a thrown error sets `catalogFailed = true` and leaves the catalog as `{ items: [], total: 0 }`.
+      - Otherwise the JSON body is a `CatalogPage`.
+    - `checkoutEnabled = isFeatureEnabled('checkout')`. `pricing = checkoutEnabled ? await getCheckoutPricing() : null`, so pricing is never requested when checkout is off.
+    - Render `<div className="amazon-cart-page" id="top">`, containing in order:
+      1. `<AmazonHeader />`.
+      2. `CartContent` with `products={await withRatings(catalog.items)}`, `catalogFailed`, `checkoutEnabled` and `pixDiscountPercent={pricing?.pixDiscountPercent ?? null}`.
+      3. `<AmazonFooter />`.
+    When the cart is enabled, the page is not wrapped in `FeatureRoute`.
+
+sf.app.checkout.page.CheckoutPage:
+  description: |
+    Route `/checkout` ("Finalizar compra"): the signed-in checkout, which requires the cart feature and passes the customer's name and Pix rate to `CheckoutContent`.
+    Steps, in order:
+    1. When `isFeatureEnabled('checkout')` is false, return `<FeatureRoute routeKey="checkout" title="Finalizar compra">{null}</FeatureRoute>`. The checkout route is configured to 404 when off.
+    2. When `isFeatureEnabled('cart')` is false, `redirect('/cart')`.
+    3. `session = await getServerSession()`. When there is none, `redirect('/login?next=checkout')`.
+    4. `pricing = await getCheckoutPricing()`.
+    5. Render `<CheckoutShell>` wrapping `<CheckoutContent name={session.user.displayName} pixDiscountPercent={pricing?.pixDiscountPercent ?? null} />`.
+
+sf.app.checkout.error.CheckoutError:
+  description: |
+    Client error boundary for `/checkout`: a short Portuguese message and a retry button that calls `reset`.
+    Render `<main className="page">`, containing in order:
+    - `<h1>Não foi possível carregar esta página</h1>`
+    - `<p>Tente novamente para consultar os dados salvos.</p>`
+    - `<button onClick={reset}>Tentar novamente</button>` (no class and no type)
+
+sf.app.checkout.success._orderId_.page.CheckoutSuccess:
+  description: |
+    Route `/checkout/success/[orderId]`: the order confirmation shown after checkout, loaded from the orders API with the visitor's cookies.
+    Steps, in order:
+    1. When `isFeatureEnabled('checkout')` is false, return `<FeatureRoute routeKey="checkout" title="Pedido">{null}</FeatureRoute>`.
+    2. When there is no session (`getServerSession()`), `redirect('/login?next=checkout')`.
+    3. When `params.orderId` does not match `/^[a-f\d]{8}(-[a-f\d]{4}){3}-[a-f\d]{12}$/i`, `notFound()`.
+    4. Fetch `${api.internalBaseUrl}${api.publicBasePath}/orders/${orderId}`, where `api` is `getConfig().api`, with `{ cache: 'no-store', headers: { cookie: cookies().toString() } }`.
+       - Status 401: `redirect('/login?next=checkout')`.
+       - Status 404: `notFound()`.
+       - Any other non-ok status: `throw new Error('Order unavailable')`.
+       - Otherwise the JSON body is the `OrderResponse`.
+    Format every amount with `formatCartMoney(amountMinor, currency)`, using the line's or the order's currency.
+    Markup: `<CheckoutShell>` wrapping `<main className="az-checkout-main az-checkout-success">`, which holds three `<section className="az-checkout-panel">` elements:
+    1. The first section contains:
+       - `<h1>Pedido confirmado!</h1>`
+       - `<p>Seu pedido foi salvo. O pagamento é simulado e não houve cobrança real.</p>`
+       - `<p className="az-checkout-order-number">Número do pedido: <strong>{orderNumber}</strong></p>`
+       - A `<p>` with `Status: ` followed by `Recebido — pendente` (with an em dash) when `order.status` is `PENDING`, or the raw status otherwise.
+    2. The second section contains `<h2>Entrega</h2>`, then the address and payment:
+       - When `shippingAddress` is non-null, a `<p>` with four lines separated by `<br />`: the recipient; `street, number`, followed by `, complement` when there is one; `neighborhood, city — state`; the postalCode.
+       - `<p>Pagamento: {paymentLabel(order)}</p>`.
+    3. The third section contains, in order:
+       - `<h2>Resumo do pedido</h2>`.
+       - `<ul className="az-checkout-confirmed-items">` with one `<li>` per order line (key productId). Each holds `<span>{quantity} × {productName}</span>` (U+00D7) and a `<strong>` with the line total.
+       - A `<p>` with `Subtotal: ` followed by the formatted `subtotalMinor`, then a `<p>` with `Frete: ` followed by the formatted `shippingMinor`.
+       - Only when `discountMinor > 0`: a `<p>` with `{discountLabel(order)}: −` followed by the formatted `discountMinor`. The minus is U+2212, not a hyphen.
+       - `<p className="az-checkout-total">`, holding `Total: ` and then a `<strong>` with the formatted `totalMinor`.
+       - `<Link className="az-cart-button" href="/">Continuar comprando</Link>`.
+
+sf.app.orders.page.OrdersPage:
+  description: |
+    Route `/orders` ("Seus pedidos"): the signed-in order history, rendered by `OrdersView`, with an inline error when the orders API fails.
+    Return `FeatureRoute` with `routeKey="orders"` and `title="Seus pedidos"`. Its only child is a separate async server component that you write in this file, so the lookups run only when the route is enabled. That component does this:
+    1. When `await getServerSession()` returns nothing, `redirect('/login')`.
+    2. `orders = await fetchOrders()`.
+    3. It renders `<div className={`amazon-orders-page ${ordersFont.variable}`} id="top">`, containing in order:
+       - `<AmazonHeader />`.
+       - When `orders` is non-null, `<OrdersView orders={orders} />`. Otherwise `<main className="az-orders">` with `<h1 className="az-orders__title">Seus pedidos</h1>` and `<p className="az-orders__empty" role="alert">Não foi possível carregar seus pedidos agora. Tente novamente em instantes.</p>`.
+       - `<AmazonFooter />`.
+
+sf.app.orders._orderId_.page.OrderDetailPage:
+  description: |
+    Route `/orders/[orderId]` ("Detalhes do pedido"): one signed-in order, with its address, payment, totals and shipment card.
+    Return `FeatureRoute` with `routeKey="orderDetails"` and `title="Detalhes do pedido"`. Its only child is a separate async server component that you write in this file and give `params.orderId`. That component checks, in order:
+    1. When there is no session (`getServerSession()`), `redirect('/login')`.
+    2. When the id fails the provided `UUID` regex, `notFound()`.
+    3. `order = await fetchOrder(orderId)`. When it returns `'not-found'`, `notFound()`. When it returns `null`, `throw new Error('Order unavailable')`.
+    Format every amount with `formatCartMoney(minor, order.currency)`.
+    Markup: `<div className={`amazon-orders-page ${ordersFont.variable}`} id="top">` contains `<AmazonHeader />`, then `<main className="az-orders">`, then `<AmazonFooter />`. Inside main, in order:
+    1. `<nav className="az-orders__crumbs" aria-label="Trilha de navegação">`, holding an `<ol>` with three `<li>`: one containing `<Link href="/account">Sua conta</Link>`, one containing `<Link href="/orders">Seus pedidos</Link>`, and `<li aria-current="page">Detalhes do pedido</li>`.
+    2. `<h1 className="az-orders__title">Detalhes do pedido</h1>`.
+    3. `<p className="az-order-detail__meta">`, holding `Pedido feito em {formatLongDate(order.placedAt)}`, then an empty `<span className="az-order__sep" aria-hidden="true" />`, then `Pedido nº {order.orderNumber}`.
+    4. `<section className="az-order-detail__summary" aria-label="Informações do pedido">`, holding three `<div>`s:
+       - `<h2>Endereço de envio</h2>`, then either an `<address>` or `<p>Não informado</p>` when there is no `shippingAddress`. The `<address>` has four lines separated by `<br />`: the recipient; `street, number`, followed by `, complement` when there is one; `neighborhood, city — state`; the postalCode.
+       - `<h2>Forma de pagamento</h2>`, then `<p>{paymentLabel(order)}</p>`.
+       - `<div id="resumo">`, holding `<h2>Resumo do pedido</h2>` and `<dl className="az-order-detail__totals">`. Each row of the list is a `<div>` with a `<dt>` and a `<dd>`, in this order:
+         - `Subtotal do(s) item(ns):` with the subtotal.
+         - `Frete e manuseio:` with the shipping.
+         - Only when `discountMinor > 0`: `{discountLabel(order)}:` with `-` (ASCII hyphen) followed by the discount.
+         - `Total do pedido:` with the total. This last row's div has `className="az-order-detail__grand"`.
+    5. `<article className="az-order" aria-label={`Pedido nº ${order.orderNumber}`}>` containing `<OrderShipment order={order} />`.
+
+# ---------------------------------------------------------------------------
+# Root layout and root boundaries.
+# ---------------------------------------------------------------------------
+
+sf.app.layout.RootLayout:
+  description: |
+    Root layout: the `<html lang="pt-BR">` shell that wraps every page in `CartProvider` and adds the generic navigation except on Amazon-styled routes.
+    - `pathname = headers().get('x-pathname') ?? ''`. The middleware sets that header.
+    - `bare` is true when any of these holds:
+      - `BARE_ROUTES`, `ACCOUNT_AREA_ROUTES` or `CUSTOMER_PAGE_ROUTES` includes the exact pathname.
+      - The pathname is `/checkout` or starts with `/checkout/`.
+      - The pathname is `/orders` or starts with `/orders/`.
+      - The pathname matches `/^\/products\/[^/]+(\/review)?\/?$/`.
+    - `cartEnabled = isFeatureEnabled('cart')`. `session = cartEnabled ? await getServerSession() : null`.
+    - Markup: `<html lang="pt-BR"><body>` containing `CartProvider` with `key={session?.user.id ?? 'guest'}`, `userId={session?.user.id ?? null}` and `enabled={cartEnabled}`. The provider holds, in order:
+      1. `<a className="visually-hidden" href="#main">Skip to content</a>`.
+      2. `<FeatureStampStrip />`, only when not bare.
+      3. `<Navigation />`, only when not bare.
+      4. `<div id="main">{children}</div>`.
+    `metadata`, `dynamic`, the route lists and the `globals.css` import are provided.
+
+sf.app.error.AppError:
+  description: |
+    Root client error boundary: the shared `ErrorState`, with an English message and a "Retry" button that calls `reset`.
+    Render `<main className="page page--narrow">` containing `ErrorState`, with its default title, the body `The page could not be rendered. Retry, or check the API and configuration if this keeps happening.` and the action `<button className="button button--secondary" onClick={reset}>Retry</button>`. The `error` prop is not used.
+
+sf.app.loading.Loading:
+  description: |
+    Root loading boundary: the shared loading indicator inside a page container.
+    Render `<main className="page">` containing `<LoadingState />` with its default label.
+
+sf.app.not-found.NotFound:
+  description: |
+    Root 404 page: the shared not-found state inside a narrow page container.
+    Render `<main className="page page--narrow">` containing `<NotFoundState />`.
+
+# ---------------------------------------------------------------------------
+# Product listing.
+# ---------------------------------------------------------------------------
+
+sf.app.products.page.generateMetadata:
+  description: |
+    Title and robots metadata for the product listing `/products`, derived from the search, category and brand in the URL.
+    - When `isFeatureEnabled('catalog')` is false, return `{}`.
+    - `params = parseBrowseParams(searchParams)`.
+    - Call `fetchCategories()` only when `params.category` is set, and treat a rejection as `[]`. `categoryName` is the `name` of the node whose `slug` equals `params.category`. It is undefined when no node matches.
+    - `brandName` is `brandByKey(params.brand)` when `params.brand` is non-empty, else undefined.
+    - `title = listingTitle({ q: params.q, categoryName, brandName })`.
+    - The listing is plain when `q` is empty, `price` is null, `inStock` is false and `page === 1`. Category, brand and sort do not affect this.
+    - Return `{ title: `${title} | ${SITE}`, robots: plain ? undefined : { index: false } }`, using the provided `SITE`.
+    For example, `{ category: 'livros' }` gives the title `Livros | Amazon.com.br`. `{ q: 'fone' }` gives the title `Resultados para “fone” | Amazon.com.br` and `robots: { index: false }`.
+
+sf.app.products.page.ProductsPage:
+  description: |
+    Route `/products`: one URL-driven template for listings, search results, and category and brand pages. The results stream in behind a skeleton.
+    - `params = parseBrowseParams(searchParams)`. The page itself is synchronous, and `BrowseResults` loads the data.
+    - Return `FeatureRoute` with `routeKey="products"` and `title="Produtos"`, wrapping `<div className="amazon-browse-page" id="top">`. The div contains, in order:
+      1. `<AmazonHeader search={{ q: params.q, category: params.category }} />`.
+      2. `<main className="az-browse-main">`, containing `<Suspense key={browseKey(params)} fallback={<BrowseSkeleton />}>` around `<BrowseResults params={params} />`. Because of the key, a new search or filter shows the skeleton instead of stale results.
+      3. `<AmazonFooter />`.
+
+# ---------------------------------------------------------------------------
+# Product details (/products/[productId]) and its boundaries.
+# ---------------------------------------------------------------------------
+
+sf.app.products._productId_.layout.ProductLayout:
+  description: |
+    Layout for `/products/[productId]` and its children: the Amazon header and footer around the page.
+    Render `<div className="amazon-product-page" id="top">` containing, in order, `<AmazonHeader />` (no props), `{children}` and `<AmazonFooter />`.
+
+sf.app.products._productId_.loading.ProductLoading:
+  description: |
+    Loading boundary for a product page: a busy container with a status line.
+    Render `<main className="az-detail-main az-detail-state" aria-busy="true">` containing `<p role="status">Carregando produto…</p>`, where the ellipsis is the single character U+2026.
+
+sf.app.products._productId_.not-found.ProductNotFound:
+  description: |
+    404 page for an unknown product: a message and a link back to the home page.
+    Render `<main className="az-detail-main az-detail-state">` containing, in order:
+    - `<h1>Produto não encontrado</h1>`
+    - `<p>Este produto não está disponível no catálogo.</p>`
+    - `<Link href="/">Voltar à página inicial</Link>`
+
+sf.app.products._productId_.error.ProductError:
+  description: |
+    Client error boundary for a product page: a message and a retry button that calls `reset`.
+    Render `<main className="az-detail-main az-detail-state">` containing, in order:
+    - `<h1>Não foi possível carregar o produto</h1>`
+    - `<p>Tente novamente em instantes.</p>`
+    - `<button type="button" className="az-detail-button" onClick={reset}>Tentar novamente</button>`
+
+sf.app.products._productId_.page.generateMetadata:
+  description: |
+    Page title, description and Open Graph data for a product page, built from the product's catalog record.
+    - When `isFeatureEnabled('productDetails')` is false, return `{}`.
+    - `product = await getCatalogProduct(params.productId)`, treating a rejection as `null`. When it is null, return `{ title: 'Produto não encontrado | Amazon.com.br' }`.
+    - `content = productContent(product)`.
+    - `description = (product.description ?? content.bullets[0] ?? product.name).slice(0, 160)`.
+    - Return `{ title: `${product.name} | ${SITE}`, description, openGraph: { title: product.name, description, images } }`, using the provided `SITE`. `images` is `content.images.slice(0, 1)` mapped to `{ url: image.src, alt: image.alt }`, so it is `[]` when the product has no photos.
+    For example, the reference product `p6` gives the title `8BitDo Ultimate 2C (Mint) | Amazon.com.br`. Its catalog description is the description, and its Open Graph image is `/images/products/8bitdo-ultimate-2c/hortela-1.jpg`.
+
+sf.app.products._productId_.page.ProductDetailPage:
+  description: |
+    Route `/products/[productId]`: loads the product, its variant family, reviews, pricing and the viewer's purchases, and renders the full product page.
+    The header and footer come from the route's layout, so do not render them here.
+    Flag and lookup:
+    - When `isFeatureEnabled('productDetails')` is false, return `<FeatureRoute routeKey="productDetails" title="Produto">{null}</FeatureRoute>` and load nothing.
+    - `product = await getCatalogProduct(params.productId)`, which accepts a UUID or a slug. Errors propagate. When the result is null, `notFound()`.
+    - `content = productContent(product)`. Read the flags `cart`, `checkout` and `catalog` with `isFeatureEnabled`.
+    Variant family (sibling catalog records in `content.variant.group`):
+    - `siblings`: `[]` without `content.variant`. Otherwise call `findCatalogProduct` in parallel for every slug of `variantGroupSlugs(group)` except `product.slug`, and drop the nulls.
+    - Each member is `{ product: item, options: c.variant?.options ?? [], image: c.images[0] }`. Here `c` is `content` for the product itself and `productContent(item)` for a sibling.
+    - `members` is `[current, ...siblings]`, sorted by each slug's index in `variantGroupSlugs(group)`. All indexes count as 0 when there is no group.
+    - `dimensions` is `variantDimensions(current, members)` when there is at least one sibling, else `[]`.
+    - `familyIds` holds the ids of `members` in sorted order, and the reviews request lists them in that order.
+    Next, `session = await getServerSession()`. Then load the following in one `Promise.all`:
+    - orders: `fetchOrders()` only when there is a session and the `orders` flag is on, else null.
+    - address: `getDeliveryAddress()` only when there is a session and checkout is on, else null.
+    - pricing: `getCheckoutPricing()` only when checkout is on, else null. Never request it when checkout is off.
+    - related: `relatedProducts(product, new Set(familyIds))` followed by `withRatings`. Elsewhere `familyIds` is the plain array.
+    - brand products: when `content.brand` is set, `findCatalogProduct` for each slug of `brandSlugs(content.brand)` except `product.slug`, else `[]`.
+    - reviews: `productReviews({ productId: product.id, familyIds, variantOptions, productSlugs, query: parseReviewQuery(searchParams), signedIn: Boolean(session) })`. `variantOptions` and `productSlugs` are Maps from each member's id to its options and to its slug.
+    - cards: `fetchPaymentCards()` when there is a session, else null.
+    Derived values:
+    - `primeNotice`: a session and `showPrimeNotice(cards, cookies().get(PRIME_NOTICE_COOKIE)?.value, session.user.id)`.
+    - `purchase`: `lastPurchase(orders, familyIds)` when `orders` is non-null, else null.
+    - `purchasedOptions`: the options of the member whose id is `purchase.line.productId`, else `[]`.
+    - `story = brandStory(content.brand)`, `pix = pricing?.pixDiscountPercent ?? null`, `rating = reviews.summary ?? undefined`.
+    - `productPath = /products/${encodeURIComponent(product.slug)}` and `reviewHref = ${productPath}/review`.
+    - `notice` is `searchParams.review` when that is `'published'` or `'updated'`, else undefined.
+    Markup inside `<main className="az-pdp">`, in order:
+    1. When the `browsingHistory` flag is on, `RecordProductView` with the product's id and name and `image={content.images[0]}`.
+    2. When there is a session and `primeNotice` is true, `<PrimePaymentNotice userId={session.user.id} userName={session.user.displayName} />`.
+    3. `ProductBreadcrumb` with `path={product.categoryPath}` and `hrefFor={categoryHref}`. Pass `hrefFor` only when the catalog is on.
+    4. When `purchase` is set, `PurchaseNotice` with `purchase`, `options={purchasedOptions}` and `reviewHref`.
+    5. `<div className="az-pdp-layout">`, containing in order:
+       - `ProductGallery` with key `gallery-${product.id}`, the product's name and `images={content.images}`.
+       - `ProductOverview` with `product`, `content`, `rating`, `dimensions` and `pixDiscountPercent={pix}`. Its `brandHref` is `brandHref(content.brand)` when there is a brand and the catalog is on; otherwise `'#brand-story'` when a story exists; otherwise undefined.
+       - `<aside className="az-pdp-aside" aria-label="Opções de compra">`, holding `<PrimeUpsell />` and then `ProductPurchase`. Give `ProductPurchase` the key `purchase-${product.id}`, `product`, `cartEnabled`, `checkoutEnabled`, `installments` and `fulfillment` from `content`, `address` and `pixDiscountPercent={pix}`. Pass `lists={{ signedIn: Boolean(session) }}` only when the `lists` flag is on.
+    6. When `related` is non-empty, `<section className="az-pdp-section" aria-labelledby="related-title">`. It holds `<h2 id="related-title">Produtos relacionados a este item</h2>` and a `HorizontalRail` with `label="Produtos relacionados a este item"` and `className="az-pdp-product-rail"`. The rail contains one `<ProductCard product={item} compact freeDelivery />` per item, with key `item.id`.
+    7. `<ProductDetailsSection content={content} rating={rating} />`, then `<ProductDescription description={product.description} />`.
+    8. When `story` is set, `BrandStorySection` with `story`. Its `listingHref` is `brandHref(story.name)`, passed only when the catalog is on. Its `products` are the brand products that are non-null and `active`, each mapped to `{ product, image: productContent(item).images[0] }`.
+    9. `CustomerReviews` with `reviews`, `writeReviewHref={reviewHref}`, `productPath`, `notice` and `loginHref = /login?next=${encodeURIComponent(`${productPath}#customer-reviews`)}`.
+
+sf.app.products._productId_.review.page.WriteReviewPage:
+  description: |
+    Route `/products/[productId]/review`: lets a signed-in customer create a review of a product, or edit the one they already wrote.
+    Steps, in order:
+    1. When `isFeatureEnabled('productReviews')` is false, return `<FeatureRoute routeKey="productReviews" title="Escreva uma avaliação">{null}</FeatureRoute>`.
+    2. `product = await getCatalogProduct(params.productId)`. When it is null, `notFound()`.
+    3. `productHref = /products/${encodeURIComponent(product.slug)}`. `loginHref = /login?next=${encodeURIComponent(`${productHref}/review`)}`, for example `/login?next=%2Fproducts%2Fp6%2Freview`.
+    4. When there is no session (`getServerSession()`), `redirect(loginHref)`.
+    5. `own = await fetchOwnReview(product.id)`. When it is `'signed-out'`, `redirect(loginHref)`. When it is `'not-found'`, `notFound()`.
+    6. `image = productContent(product).images[0]`.
+    Markup inside `<main className="az-review-page">`, in order:
+    1. An `<h1>`: `Editar avaliação` when `own?.review` exists, else `Criar avaliação`.
+    2. `<div className="az-review-page__product">`, holding, when there is an image, `<Image src={image.src} alt={image.alt} width={64} height={64} />` (from `next/image`), and then `<Link href={productHref}>{product.name}</Link>`.
+    3. When `own === null` (the reviews service is unreachable), `EmptyState` with the title `Não foi possível abrir sua avaliação` and the body `Não conseguimos falar com o serviço de avaliações agora. Tente novamente em instantes.`
+    4. Otherwise, in order:
+       - Only when `own.verifiedPurchase` is true: `<p className="az-review-page__verified">` with `Você comprou este produto: sua avaliação terá o selo `, then `<strong>Compra verificada</strong>`, then `.`.
+       - `ReviewForm` with `productId={product.id}`, `productHref`, `loginHref` and `initial`. `initial` is `{ rating, title, body }` from `own.review` when that exists, else undefined.
+       - `<p className="az-review-page__note">Sua avaliação é publicada com seu primeiro nome e a inicial do sobrenome. Você pode editá-la quando quiser; cada cliente tem uma avaliação por produto.</p>`.
+    The `metadata` export (title `Escreva uma avaliação | Amazon.com.br`, `robots: { index: false }`) is provided.

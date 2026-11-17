@@ -1,0 +1,23 @@
+{
+  "sf.features.browse.browse-params.brandKey": ["apps/storefront/test/browse-params.brandKey.new.spec.ts"],
+  "sf.features.browse.browse-params.priceParam": ["apps/storefront/test/browse-params.priceParam.new.spec.ts"],
+  "sf.features.browse.browse-params.browseHref": ["apps/storefront/test/browse-params.browseHref.new.spec.ts"],
+  "sf.features.browse.browse-params.categoryHref": ["apps/storefront/test/browse-params.categoryHref.new.spec.ts"],
+  "sf.features.browse.browse-params.brandHref": ["apps/storefront/test/browse-params.brandHref.new.spec.ts"],
+  "sf.features.browse.browse-params.browseKey": ["apps/storefront/test/browse-params.browseKey.new.spec.ts"],
+  "sf.features.browse.browse-model.listingTitle": ["apps/storefront/test/browse-model.listingTitle.new.spec.ts"],
+  "sf.features.browse.browse-model.resultsSummary": ["apps/storefront/test/browse-model.resultsSummary.new.spec.ts"],
+  "sf.features.browse.browse-model.lastPage": ["apps/storefront/test/browse-model.lastPage.new.spec.ts"],
+  "sf.features.browse.browse-model.pageWindow": ["apps/storefront/test/browse-model.pageWindow.new.spec.ts"],
+  "sf.features.cart.cart-client.CartRequestError": ["apps/storefront/test/cart-client.CartRequestError.new.spec.ts"],
+  "sf.features.cart.cart-client.cartClient": ["apps/storefront/test/cart-client.cartClient.new.spec.ts"],
+  "sf.features.cart.money.formatCartMoney": ["apps/storefront/test/money.formatCartMoney.new.spec.ts"],
+  "sf.features.checkout.card-number.cardDigits": ["apps/storefront/test/card-number.cardDigits.new.spec.ts"],
+  "sf.features.checkout.card-number.formatCardNumber": ["apps/storefront/test/card-number.formatCardNumber.new.spec.ts"],
+  "sf.features.checkout.card-number.detectCardBrand": ["apps/storefront/test/card-number.detectCardBrand.new.spec.ts"],
+  "sf.features.checkout.card-number.passesLuhn": ["apps/storefront/test/card-number.passesLuhn.new.spec.ts"],
+  "sf.features.checkout.card-number.cardNumberError": ["apps/storefront/test/card-number.cardNumberError.new.spec.ts"],
+  "sf.features.checkout.checkout-client.CheckoutError": ["apps/storefront/test/checkout-client.CheckoutError.new.spec.ts"],
+  "sf.features.checkout.checkout-client.checkoutClient": ["apps/storefront/test/checkout-client.checkoutClient.new.spec.ts"],
+  "sf.features.checkout.checkout-client.cartContentKey": ["apps/storefront/test/checkout-client.cartContentKey.new.spec.ts"]
+}

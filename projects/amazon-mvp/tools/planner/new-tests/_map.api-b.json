@@ -1,0 +1,20 @@
+{
+  "api.common.request-context.RequestContextStore": [
+    "apps/api/src/common/request-context.RequestContextStore.new.spec.ts"
+  ],
+  "contract.paymentDiscountPercent": [
+    "apps/api/src/modules/orders/checkout-quote.paymentDiscountPercent.new.spec.ts"
+  ],
+  "contract.isApiErrorBody": [
+    "apps/storefront/test/api-contract.isApiErrorBody.new.spec.ts"
+  ],
+  "contract.cardLabel": [
+    "apps/storefront/test/api-contract.cardLabel.new.spec.ts"
+  ],
+  "contract.isCardExpired": [
+    "apps/storefront/test/api-contract.isCardExpired.new.spec.ts"
+  ],
+  "contract.REVIEW_ROUTES": [
+    "apps/storefront/test/api-contract.REVIEW_ROUTES.new.spec.ts"
+  ]
+}

@@ -1,0 +1,33 @@
+# Self-check of the bundle, not an experiment: the mock backend answers every unit with the
+# original code (tools/make_replay.py writes runs/replay-responses.yaml), so every unit and
+# milestone should pass. Tests run with the real runners, so the preflight installs dependencies.
+run_name: replay
+model:
+  backend: mock
+  mock_responses: runs/replay-responses.yaml
+  context_window: 32768
+  max_output_tokens: 2048
+budget:
+  chars_per_token: 3.5
+  safety_margin: 0.9
+  max_error_tokens: 700
+run:
+  samples: 1
+  max_attempts: 1
+  regression: related
+  max_milestone_repairs: 0
+checks:
+  cwd: "{workspace}"
+  env:
+    APP_ENV: test
+    NEXT_TELEMETRY_DISABLED: "1"
+  inherit_env: [PATH, PATHEXT, SYSTEMROOT, SYSTEMDRIVE, WINDIR, COMSPEC, OS, TEMP, TMP, TMPDIR, HOME,
+                USERPROFILE, HOMEDRIVE, HOMEPATH, APPDATA, LOCALAPPDATA, PROGRAMDATA, PROGRAMFILES,
+                NUMBER_OF_PROCESSORS, PROCESSOR_ARCHITECTURE, USERNAME, USER, LANG, TZ, PNPM_HOME, DATABASE_URL]
+  preflight:
+    - name: setup
+      command: [node, tools/harness-test.mjs, --setup]
+      timeout_s: 1800
+  tests:
+    command: [node, tools/harness-test.mjs, "{tests}"]
+    timeout_s: 900

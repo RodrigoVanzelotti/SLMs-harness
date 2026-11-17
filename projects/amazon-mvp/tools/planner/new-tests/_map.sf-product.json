@@ -1,0 +1,6 @@
+{
+  "sf.features.product.product-rules.formatPurchaseDate": ["apps/storefront/test/product-rules.formatPurchaseDate.new.spec.ts"],
+  "sf.features.product.product-rules.formatRating": ["apps/storefront/test/product-rules.formatRating.new.spec.ts"],
+  "sf.features.product.related-products.distinctCards": ["apps/storefront/test/related-products.distinctCards.new.spec.ts"],
+  "sf.features.product.reviews.ratings.attachRatings": ["apps/storefront/test/ratings.attachRatings.new.spec.ts"]
+}

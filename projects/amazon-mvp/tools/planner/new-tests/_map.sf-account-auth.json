@@ -1,0 +1,14 @@
+{
+  "sf.features.account.account-client.AccountRequestError": [
+    "apps/storefront/test/account-client.AccountRequestError.new.spec.ts"
+  ],
+  "sf.features.account.account-client.accountClient": [
+    "apps/storefront/test/account-client.accountClient.new.spec.ts"
+  ],
+  "sf.features.auth.auth-client.AuthRequestError": [
+    "apps/storefront/test/auth-client.AuthRequestError.new.spec.ts"
+  ],
+  "sf.features.auth.auth-client.authClient": [
+    "apps/storefront/test/auth-client.authClient.new.spec.ts"
+  ]
+}

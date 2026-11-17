@@ -1,0 +1,623 @@
+# Planner-written behavior text for group api-b: API orders, reviews, health, common
+# infrastructure, bootstrap/main/openapi, the database package and seeds, api-contract
+# functions and config-schema. Merged into spec/contracts by tools/planner/build_bundle.py.
+
+api.bootstrap.createApp:
+  description: |
+    Create and configure the Nest application shared by `main.ts`, the OpenAPI script and the integration tests; returns `{ app, config }`.
+    Do not call `app.init()` or `app.listen()` here: callers do. Steps, in order:
+    1. `const app = await NestFactory.create(AppModule, { bufferLogs: true })`.
+    2. `const config = app.get<ApiConfig>(API_CONFIG)`; `const logger = app.get(StructuredLogger)`;
+       `logger.setLevel(config.app.logLevel)`; `app.useLogger(logger)`.
+    3. `app.setGlobalPrefix('api/v1', { exclude: ['health', 'ready'] })`: the probes stay at `/health`
+       and `/ready`; every other route lives under `/api/v1` (e.g. `/api/v1/orders`).
+    4. `app.use(cookieParser())`: the session guard reads the cookie from `req.cookies`.
+    5. `app.useGlobalFilters(new HttpExceptionFilter(logger))`.
+    6. `app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true,
+       transform: true, transformOptions: { enableImplicitConversion: false } }))`. Unknown body or
+       query properties (e.g. a forged `totalMinor` or `userId`) are rejected with 400 `VALIDATION_FAILED`.
+    7. `app.enableShutdownHooks()`.
+    Do not enable CORS (the storefront is same-origin) and do not mount Swagger here (`main.ts` does).
+    Return `{ app, config }`.
+
+api.bootstrap.buildOpenApiDocument:
+  description: |
+    Build the OpenAPI document for an app from its controllers and DTO decorators; no side effects.
+    Build the config with `new DocumentBuilder()`, chained in this order:
+    `.setTitle('Amazon MVP API')`,
+    `.setDescription('Modular monolith API for the MVP skeleton. Sessions are opaque cookies.')`,
+    `.setVersion('1.0.0')`,
+    `.addCookieAuth('amzmvp_sid', { type: 'apiKey', in: 'cookie', name: 'amzmvp_sid' })`,
+    `.addTag('auth')`, `.addTag('health')`, `.addTag('protected')`, `.build()`.
+    Return `SwaggerModule.createDocument(app, config)`.
+
+api.common.api-error.ApiError:
+  description: |
+    HttpException for every deliberate API failure: a stable `ErrorCode`, a human message, an HTTP status and optional field details.
+    - Constructor: `super({ code, message, details }, status)`. `code` and `details` are public
+      readonly properties (constructor parameter properties). Nest then gives `getStatus()` = status,
+      `getResponse()` = that object and `.message` = message; `HttpExceptionFilter` reads `code` and
+      `details` from the response object.
+    Static factories (return, do not throw; use `ErrorCode.*` and `HttpStatus.*`):
+    - `invalidCredentials()`: `AUTH_INVALID_CREDENTIALS`, `'Invalid credentials'`, 401. Same error for an
+      unknown e-mail and a wrong password.
+    - `currentPasswordInvalid()`: `AUTH_INVALID_CREDENTIALS`, `'Invalid credentials'`, 403 (the session
+      is valid, so not 401).
+    - `emailAlreadyRegistered()`: `AUTH_EMAIL_ALREADY_REGISTERED`, `'That email is already registered'`, 409.
+    - `sessionRequired()`: `AUTH_SESSION_REQUIRED`, `'Sign in to continue'`, 401.
+    - `notFound(resource)`: `RESOURCE_NOT_FOUND`, the resource name followed by ` not found`
+      (`notFound('Order')` has message `'Order not found'`), 404.
+
+api.common.http-exception.filter.HttpExceptionFilter:
+  description: |
+    Global filter that turns every thrown error into the one wire shape `{ error: { code, message, requestId, details? } }` and logs it.
+    Get `response = host.switchToHttp().getResponse<Response>()` and `requestId = RequestContextStore.requestId()`;
+    answer with `response.status(status).json(payload)`.
+    When `exception instanceof HttpException` (ApiError, Nest built-ins, ValidationPipe errors):
+    - `status = exception.getStatus()`; `raw = exception.getResponse()`; a string `raw` is treated as
+      `{ message: raw }`, an object as `NestValidationBody`.
+    - `code` = `body.code` when present; otherwise by status: 400 `VALIDATION_FAILED`, 401
+      `AUTH_SESSION_REQUIRED`, 404 `RESOURCE_NOT_FOUND`, anything else `INTERNAL_ERROR`. So a plain
+      `HttpException({ code: 'REVIEW_SELF_VOTE', message }, 403)` keeps its own code.
+    - `message` = `'Request validation failed'` when `body.message` is an array; otherwise
+      `body.message ?? exception.message`.
+    - `details` = `body.details` when present; else, when `body.message` is an array, one
+      `{ field, message }` per entry, `field` being the text before the first space (class-validator
+      messages start with the property name: `'email must be an email'` gives field `email`); else none.
+      Include the `details` key only when there are details.
+    - Log before replying: status >= 500 → `` logger.error(`${code}: ${message}`, exception.stack, 'HttpExceptionFilter') ``;
+      otherwise `` logger.warn(`${status} ${code}: ${message}`, 'HttpExceptionFilter') ``.
+    Any other thrown value (plain Error, Prisma error, a string):
+    - `logger.error(exception is an Error ? its message : 'Unhandled exception', its stack or undefined, 'HttpExceptionFilter')`.
+    - Reply 500 with `{ error: { code: 'INTERNAL_ERROR', message: 'Something went wrong on our side', requestId } }`.
+      Never send the original message or stack to the client.
+
+api.common.prisma.service.PrismaService:
+  description: |
+    The single Nest-managed Prisma client: connects on module init, disconnects on destroy, and checks database reachability.
+    - Constructor: `super({ datasources: { db: { url: config.database.url } } })`.
+    - `onModuleInit()`: `await this.$connect()`. `onModuleDestroy()`: `await this.$disconnect()`.
+    - `isReachable()`: run ``await this.$queryRaw`SELECT 1` ``; resolve `true` on success and `false` on
+      any error (never throws). Used by `GET /ready`.
+
+api.common.request-context.RequestContextStore:
+  description: |
+    Per-request context (request id, user id) held in the module's `AsyncLocalStorage` (`storage`) and readable anywhere in the request's async chain.
+    A plain object with four methods:
+    - `run(context, fn)`: `storage.run(context, fn)`; returns what `fn` returns. Inside `fn` (and its awaits
+      and timers) `get()` returns that same object; a nested `run` shadows the outer context until it ends.
+    - `get()`: the current context object, or `undefined` outside any `run`.
+    - `requestId()`: the current `requestId`, or `'no-request-context'` outside any `run`.
+    - `setUserId(userId)`: sets `userId` on the current context object (mutates it in place); does
+      nothing outside any `run`.
+
+api.common.request-id.middleware.RequestIdMiddleware:
+  description: |
+    Express middleware that gives every request a correlation id and runs the rest of the request inside a `RequestContextStore` context.
+    - `inbound = req.header(REQUEST_ID_HEADER)` (`x-request-id`). Use it when it is a non-empty string of at
+      most 128 characters; otherwise use `randomUUID()`.
+    - `res.setHeader(REQUEST_ID_HEADER, requestId)`.
+    - `RequestContextStore.run({ requestId }, () => next())`, so guards, handlers, the exception filter
+      and the logger see the id.
+
+api.common.structured-logger.StructuredLogger:
+  description: |
+    Nest LoggerService that writes one JSON object per line to stdout, tagged with the current request and user id and filtered by level.
+    - Severity order is `LEVELS` (`fatal`, `error`, `warn`, `info`, `debug`, `trace`). The threshold starts
+      at `'info'`; `setLevel(level)` replaces it. A message is written only when the index of its level
+      in `LEVELS` is <= the threshold's index (threshold `'error'` writes only fatal and error).
+    - Method → level: `log` → `info`, `error` → `error`, `warn` → `warn`, `debug` → `debug`,
+      `verbose` → `trace`, `fatal` → `fatal`. `error(message, stack?, context?)`: the second argument is
+      the stack, the third the context; the others take `(message, context?)`.
+    - Each line is `process.stdout.write(JSON.stringify(entry) + '\n')` where `entry` has, in order:
+      `time` (`new Date().toISOString()`), `level`, `message` (a string as is, anything else
+      `JSON.stringify`-ed), `context`, `requestId` and `userId` (from `RequestContextStore.get()`), and,
+      for `error()` with a stack, `stack`. Undefined values simply drop out of the JSON.
+    Use a private helper for the shared write. This logger is the one place that writes to stdout; do
+    not use `console`.
+
+api.config.api-config.loadApiConfig:
+  description: |
+    Load and validate the API configuration (`<configDir>/default.yaml`, then `<environment>.yaml`, then env vars); throws `ConfigValidationError` when invalid.
+    Return `loadConfig({ configDir, environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? 'local',
+    schema: ApiConfigSchema, envMap: ENV_MAP })`. Do not pass `env` (loadConfig reads `process.env`).
+    The default `configDir` resolves to `apps/api/config` from both `src/config` and `dist/config`.
+  notes: |
+    The result has `app { name, environment, port, logLevel }`, `database { url }`,
+    `session { cookieName, ttlHours, secureCookie, sameSite }`, `openapi { enabled, path }` and
+    `checkout { pixDiscountPercent, maxInstallments, minInstallmentMinor }`.
+
+api.main:
+  description: |
+    The API process entry point `apps/api/src/main.ts`: builds the app, mounts Swagger UI when enabled, listens, and exits with code 1 on startup failure.
+    Write the whole file. Imports, in this order: `import 'reflect-metadata';`,
+    `import { SwaggerModule } from '@nestjs/swagger';`,
+    `import { buildOpenApiDocument, createApp } from './bootstrap';`,
+    `import { bootstrapLogger } from './common/structured-logger';`.
+    `async function main()`:
+    1. `const { app, config } = await createApp();`
+    2. If `config.openapi.enabled`: `SwaggerModule.setup(config.openapi.path, app, buildOpenApiDocument(app), { useGlobalPrefix: false })`.
+    3. `await app.listen(config.app.port, '0.0.0.0');`
+    4. `` bootstrapLogger.log(`${config.app.name} listening on :${config.app.port} (${config.app.environment})`) ``.
+    Then call `main().catch((error) => { bootstrapLogger.error(error instanceof Error ? error.message : String(error)); process.exit(1); });`
+    Invalid configuration ends up in that catch. The file exports nothing.
+
+api.health.health.controller.HealthController:
+  description: |
+    Unversioned Kubernetes probes, both `@Public()`: `GET /health` (liveness, never touches the database) and `GET /ready` (readiness, checks it).
+    `createApp` excludes these two paths from the `api/v1` prefix, hence `@Controller()` with no path.
+    - `health()`: return `{ status: 'ok', service: this.config.app.name, version: process.env.APP_VERSION ?? '0.1.0' }`.
+    - `ready()`: `reachable = await this.prisma.isReachable()`; `body = { status: reachable ? 'ready' : 'not-ready',
+      checks: { database: reachable ? 'ok' : 'failed' } }`. Reachable → return `body` (200). Otherwise
+      `throw new ServiceUnavailableException(body)` (503), because probes only read the status code.
+
+api.orders.checkout-quote.conflict:
+  description: |
+    Build (not throw) the 409 checkout error: `new ApiError(ErrorCode.CART_ITEM_UNAVAILABLE, message, HttpStatus.CONFLICT)`.
+    Callers write `throw conflict('...')`.
+
+api.orders.checkout-quote.quoteCart:
+  description: |
+    Price a cart for one payment method: validate it, apply the Pix discount, and return totals, a revision hash and the card installment plans.
+    Pure and synchronous. Checks, in order; each throws `conflict(message)` (409 `CART_ITEM_UNAVAILABLE`):
+    1. `cart.lines` is empty → `'Seu carrinho está vazio.'`
+    2. Some line has `line.product.currency !== cart.currency`, `!line.product.active`, or
+       `line.quantity > line.product.availableQuantity` → `'Revise os produtos e quantidades do carrinho.'`
+    3. `cart.subtotalMinor` is not a safe integer, is negative, or is > 2147483647 →
+       `'O total do carrinho excede o limite permitido.'`
+    Then:
+    - `discountPercent = paymentDiscountPercent(paymentMethod, pricing)` (the Pix rate for `SIMULATED_PIX`, 0 for card).
+    - `revision` = SHA-256 hex digest (`createHash('sha256').update(text).digest('hex')`, 64 chars) of
+      `text = JSON.stringify([cart.id, cart.currency, lines, paymentMethod, discountPercent])`, where
+      `lines` is a copy of `cart.lines` sorted by `productId` (`a.productId.localeCompare(b.productId)`)
+      and mapped to `[productId, quantity, unitPriceMinor]`. Put nothing else in it (no user, product
+      data, totals or installments): a card quote then does not change with the Pix rate, and the order
+      flow can rebuild the same revision from locked prices.
+    - `shippingMinor = 0`; `discountMinor = percentDiscountMinor(cart.subtotalMinor, discountPercent)`
+      (on the whole subtotal, rounded down); `totalMinor = cart.subtotalMinor + shippingMinor - discountMinor`.
+    - Return `{ cart, revision, subtotalMinor: cart.subtotalMinor, shippingMinor, discountMinor, totalMinor,
+      currency: cart.currency, paymentMethod, discountPercent, installmentOptions: paymentMethod === 'SIMULATED_CARD'
+      ? installmentOptions(totalMinor, pricing) : [] }` (plans on the discounted total; none for Pix).
+      Do not declare a local variable named `installmentOptions`: it would shadow the imported function.
+  examples:
+    - "quoteCart(cart of 3 x 1234 BRL, 'SIMULATED_PIX', { pixDiscountPercent: 5, maxInstallments: 10, minInstallmentMinor: 500 }) matches { subtotalMinor: 3702, discountMinor: 185, totalMinor: 3517, discountPercent: 5, installmentOptions: [] }"
+    - "quoteCart(cart of 1 x 1000 BRL, 'SIMULATED_CARD', same pricing).installmentOptions.length == 2"
+
+api.orders.orders.controller.OrdersController:
+  description: |
+    HTTP layer for `/api/v1/orders`: public pricing, then session-only quote, place, list and detail, each delegating to `ORDERS_API`.
+    Return the service results unchanged. Routes without `@Public()` are protected by the global session
+    guard (401 `AUTH_SESSION_REQUIRED` without a valid session); `@CurrentAuth()` gives `{ userId, ... }`.
+    - `pricing()`: `this.orders.pricing()`.
+    - `quote(auth, query)`: `this.orders.quote(auth.userId, query.paymentMethod)` (no method = card).
+    - `place(auth, dto)`: `this.orders.placeOrderFromCart(auth.userId, dto)`; Nest answers 201.
+    - `list(auth)`: `this.orders.listForUser(auth.userId)`.
+    - `get(auth, params)`: `const order = await this.orders.findForUser(auth.userId, params.orderId)`; when
+      null `throw ApiError.notFound('Order')` (404, also for another user's order); else return it.
+
+api.orders.orders.service.OrdersService:
+  description: |
+    Orders module service: checkout pricing and quotes, the transactional place-order flow, and the user's order history (Prisma `order`, `orderItem`).
+    Constructor: keep `{ pixDiscountPercent, maxInstallments, minInstallmentMinor }` from `config.checkout` in a
+    private `checkoutPricing` field. `invalidPayment(msg)` below means `new ApiError(ErrorCode.PAYMENT_INVALID, msg, HttpStatus.BAD_REQUEST)`.
+    - `pricing()`: a fresh copy of `checkoutPricing` (e.g. `{ pixDiscountPercent: 5, maxInstallments: 10, minInstallmentMinor: 500 }`).
+    - `quote(userId, paymentMethod = 'SIMULATED_CARD')`: `quoteCart(await this.cart.getActiveCart(userId), paymentMethod, this.checkoutPricing)`.
+    - `placeOrderFromCart(userId, input)`: all steps inside one
+      `this.prisma.$transaction(async (tx) => { ... }, { maxWait: 10000, timeout: 20000 })`; pass `tx` to every
+      API call; any throw rolls back stock, order and cart changes. In order:
+      1. `await this.cart.lockForCheckout(userId, tx)` (serializes concurrent confirmations).
+      2. `tx.order.findFirst({ where: { userId, sourceCartId: input.cartId }, include: { items: true } })`;
+         if found, return it mapped, with no other check (retries, even with another method, get the original).
+      3. Card: for Pix (method not `SIMULATED_CARD`), `cardId` or `installments` present (not undefined) →
+         `invalidPayment('Pix não aceita cartão nem parcelamento.')`, card = null. For card: no `cardId` →
+         `{ ...DEMO_CARD }`; else `await this.cards.findCard(userId, cardId, tx)`; null →
+         `ApiError.notFound('Payment card')`; `isCardExpired(card)` → `invalidPayment('O cartão selecionado está vencido.')`;
+         else `{ brand, last4 }`.
+      4. `address = await this.users.findAddress(userId, input.addressId, tx)`; null → `ApiError.notFound('Address')`.
+      5. `items = await this.cart.checkoutItems(userId, input.cartId, tx)`;
+         `products = await this.catalog.consumeForOrder(items, tx)` (locks rows, decrements stock, may throw 409).
+      6. Lines, in `items` order: `{ ...item, product, unitPriceMinor: product.priceMinor,
+         lineTotalMinor: item.quantity * product.priceMinor }` (product found by id).
+      7. `quote = quoteCart({ id: input.cartId, userId, lines, itemCount: sum of quantities,
+         subtotalMinor: sum of lineTotalMinor, currency: products[0].currency }, input.paymentMethod, this.checkoutPricing)`.
+         Nothing monetary comes from the request.
+      8. `quote.revision !== input.revision` → `throw conflict('Seu carrinho, os preços ou a forma de pagamento mudaram. Revise o resumo e confirme novamente.')`.
+      9. `installments = card ? (input.installments ?? 1) : null`; if not null and no
+         `quote.installmentOptions` entry has `count === installments` →
+         `invalidPayment('Número de parcelas indisponível para este total.')`.
+      10. `tx.order.create({ data, include: { items: true } })`, data: `userId`, `sourceCartId: input.cartId`,
+          `orderNumber: 'PED-' + randomUUID()`, `status: 'PENDING'`, `subtotalMinor`, `shippingMinor`,
+          `discountMinor`, `totalMinor`, `currency` from the quote, `shippingAddress` = the address's
+          `recipient, postalCode, street, number, complement, neighborhood, city, state, phone,
+          deliveryInstructions` (no id), `paymentMethod: input.paymentMethod`,
+          `paymentCard: card ? { brand, last4 } : undefined`, `installments`, and `items: { create: [...] }`
+          with `productId`, `productName: product.name`, `sku: product.sku`, `quantity`, `unitPriceMinor`,
+          `lineTotalMinor`, `currency: product.currency`.
+      11. `await this.cart.convertForCheckout(userId, input.cartId, tx)`; return the created order mapped.
+    - `listForUser(userId)`: `prisma.order.findMany({ where: { userId }, include: { items: true }, orderBy: { placedAt: 'desc' }, take: 50 })`, mapped.
+    - `findForUser(userId, orderId)`: `prisma.order.findFirst({ where: { id: orderId, userId }, include: { items: true } })`, mapped, or `null`.
+    - `hasPurchased(userId, productId)`: `true` when `prisma.orderItem.findFirst({ where: { productId,
+      order: { userId, status: { not: 'CANCELLED' } } }, select: { id: true } })` finds a row.
+    Mapping an order row (with `items`) to `OrderResponse`: copy `id, orderNumber, status, subtotalMinor,
+    shippingMinor, discountMinor, totalMinor, currency, shippingAddress, paymentMethod, paymentCard,
+    installments, deliveryNote` (JSON columns cast as is; null stays null), `placedAt.toISOString()`,
+    `deliveredAt?.toISOString() ?? null`, and `lines` = items as `{ productId, productName, sku, quantity,
+    unitPriceMinor, lineTotalMinor, currency }` only. A re-read order equals the one returned at creation.
+
+api.reviews.dto.commaSeparated:
+  description: |
+    `@Transform` helper for comma-separated query parameters: a string becomes its trimmed, non-empty parts; any other value is returned unchanged.
+    Called by class-transformer with `{ value }`. For a string: `value.split(',')`, trim each part, drop
+    empty parts (so `' a, b ,,c '` gives `['a', 'b', 'c']`). An array (repeated query parameter) or
+    undefined passes through for the validators to judge.
+
+api.reviews.review-rules.summarize:
+  description: |
+    Merge demo listing aggregates (baselines) with written-review star counts into one `RatingSummary` (`average`, `count`, `distribution`).
+    - Baselines sharing a `listingKey` (variants of one listing) count once: keep the first of each key.
+    - `count` = sum of kept `ratingCount` + sum of written `count`; `sum` = sum of kept `ratingSum` +
+      sum of `rating * count`.
+    - Per-star totals, index 0 = 5 stars ... index 4 = 1 star: each kept baseline adds
+      `ratingCount * percent / 100` (unrounded) for each of its 5 `distribution` values (5 stars first);
+      each written `{ rating, count }` adds `count` to star `rating`.
+    - `average` = `Math.round((sum / count) * 10) / 10`, or `null` when `count` is 0.
+    - `distribution` = 5 buckets `{ stars, percent }` for stars 5, 4, 3, 2, 1, with
+      `percent = count ? Math.round((starTotal / count) * 100) : 0`; but `null` when any kept baseline's
+      `distribution` does not have exactly 5 values (unknown; never derived from the average). Its
+      `ratingCount` and `ratingSum` still count.
+  examples:
+    - "summarize([], [{ rating: 5, count: 3 }, { rating: 2, count: 1 }]) == { average: 4.3, count: 4, distribution: [{ stars: 5, percent: 75 }, { stars: 4, percent: 0 }, { stars: 3, percent: 0 }, { stars: 2, percent: 25 }, { stars: 1, percent: 0 }] }"
+    - "summarize([], []) == { average: null, count: 0, distribution: [5, 4, 3, 2, 1].map((stars) => ({ stars, percent: 0 })) }"
+    - "summarize([{ listingKey: 'a', ratingCount: 100, ratingSum: 450, distribution: [] }], []) == { average: 4.5, count: 100, distribution: null }"
+
+api.reviews.review-rules.publicName:
+  description: |
+    Public author name for a review: the first word plus the last word's initial (uppercased) and a dot; never the full name.
+    Trim, split on runs of whitespace. No words → `'Cliente Amazon'`; one word → that word unchanged;
+    otherwise `` `${first} ${lastInitial}.` `` (the first word keeps its case).
+  examples:
+    - "publicName('Camila Souza Lima') == 'Camila L.'"
+    - "publicName('ana maria') == 'ana M.'"
+    - "publicName('  Rafael  ') == 'Rafael'"
+    - "publicName('   ') == 'Cliente Amazon'"
+
+api.reviews.reviews.controller.ReviewsController:
+  description: |
+    HTTP layer for `/api/v1/reviews`: public list and summaries; session-only viewer state, own review read/save and helpful vote, via `REVIEWS_API`.
+    Routes without `@Public()` are protected by the global session guard (401 `AUTH_SESSION_REQUIRED`).
+    Validation (UUIDs, at most 24 ids, 48 for summaries, stars 1-5, pageSize <= 20, sort) is done by the DTOs.
+    - `list(query)`: `this.reviews.list({ productIds: query.productIds, sort: query.sort ?? 'helpful',
+      stars: query.stars, page: query.page ?? 1, pageSize: query.pageSize ?? 10 })`.
+    - `summary(query)`: `this.reviews.summary(query.productIds)`.
+    - `summaries(query)`: `this.reviews.summaries(query.productIds)`.
+    - `viewer(auth, query)`: `this.reviews.viewerState(auth.userId, query.productIds)`.
+    - `mine(auth, query)`: `const own = await this.reviews.findOwn(auth.userId, query.productId)`; null →
+      `throw ApiError.notFound('Product')`; else return it.
+    - `save(auth, dto)`: `this.reviews.saveOwn(auth.userId, dto)` (creates or updates; PUT answers 200).
+    - `helpful(auth, params)`: `this.reviews.markHelpful(auth.userId, params.reviewId)`.
+
+api.reviews.reviews.service.ReviewsService:
+  description: |
+    Reviews service over Prisma `review`, `reviewHelpfulVote` and `reviewRatingBaseline`: lists, rating summaries, viewer state, own review, helpful votes.
+    Prisma fields: `review { id, productId, userId (null for demo rows), authorName, rating, title, body,
+    verifiedPurchase, helpfulCount, createdAt, updatedAt }` with unique key `productId_userId`;
+    `reviewHelpfulVote { reviewId, userId }` (one row per pair, relation `review`);
+    `reviewRatingBaseline { productId, listingKey, ratingCount, ratingSum, distribution: number[] }`.
+    Every method first de-duplicates `productIds` (`[...new Set(ids)]`).
+    - `list(q)`: `where = { productId: { in: ids }, ...(q.stars ? { rating: q.stars } : {}) }`; `orderBy` for
+      `'recent'` is `[{ createdAt: 'desc' }, { id: 'asc' }]`, else `[{ helpfulCount: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }]`.
+      `const [rows, total] = await this.prisma.$transaction([review.findMany({ where, orderBy, skip: (q.page - 1) * q.pageSize, take: q.pageSize }), review.count({ where })])`;
+      return `{ items: rows mapped, total, page: q.page, pageSize: q.pageSize }`.
+    - `summary(ids)`: in parallel `reviewRatingBaseline.findMany({ where: { productId: { in: ids } }, orderBy: { productId: 'asc' } })`
+      and `review.groupBy({ by: ['rating'], where: { productId: { in: ids } }, _count: { _all: true } })`;
+      return `summarize(baselines, groups.map((g) => ({ rating: g.rating, count: g._count._all })))`.
+    - `summaries(ids)`: the same two queries (no orderBy; groupBy `['productId', 'rating']`); return
+      `{ items }` with one `{ productId, average, count }` per unique id, in request order, each from
+      `summarize` over that product's rows only (nothing → `average: null, count: 0`).
+    - `viewerState(userId, ids)`: in parallel `review.findMany({ where: { userId, productId: { in: ids } }, select: { id: true, productId: true } })`
+      and `reviewHelpfulVote.findMany({ where: { userId, review: { productId: { in: ids } } }, select: { reviewId: true } })`;
+      return `{ ownReviews, helpfulReviewIds: votes.map((v) => v.reviewId) }`.
+    - A product exists when `(await this.catalog.findByIds([productId])).length > 0`.
+    - `findOwn(userId, productId)`: product missing → `null`. Else in parallel
+      `review.findUnique({ where: { productId_userId: { productId, userId } } })` and
+      `this.orders.hasPurchased(userId, productId)`; return `{ review: mapped or null, verifiedPurchase }`
+      (the current purchase state, which may differ from the stored review's flag).
+    - `saveOwn(userId, input)`: product missing → `throw ApiError.notFound('Product')`. In parallel
+      `this.users.findById(userId)` and `this.orders.hasPurchased(userId, input.productId)`; no user →
+      `throw ApiError.sessionRequired()`. `data = { authorName: publicName(user.displayName), rating, title,
+      body, verifiedPurchase }`; `review.upsert({ where: { productId_userId: { productId, userId } }, update: data,
+      create: { ...data, productId, userId } })` (an edit keeps id and createdAt). If it throws
+      `Prisma.PrismaClientKnownRequestError` with `code === 'P2002'`, return `review.update({ where, data })`
+      mapped instead; rethrow anything else.
+    - `markHelpful(userId, reviewId)`: `review.findUnique({ where: { id: reviewId }, select: { userId: true } })`;
+      missing → `ApiError.notFound('Review')`; own review → `throw new HttpException({ code: ReviewErrorCode.REVIEW_SELF_VOTE,
+      message: 'Você não pode marcar sua própria avaliação como útil.' }, HttpStatus.FORBIDDEN)`. Then in
+      `this.prisma.$transaction(async (tx) => ...)`: `tx.reviewHelpfulVote.createMany({ data: [{ reviewId, userId }], skipDuplicates: true })`;
+      if `count` is 1, `tx.review.update({ where: { id: reviewId }, data: { helpfulCount: { increment: 1 } }, select: { helpfulCount: true } })`,
+      else `tx.review.findUniqueOrThrow` with the same select; return `{ reviewId, helpfulCount, voted: true }`.
+      A repeated vote is a no-op returning the same count.
+    Mapping a review row: `{ id, productId, authorName, rating, title, body, verifiedPurchase, helpfulCount,
+    createdAt: toISOString(), updatedAt: toISOString() }` (no userId, source or fixtureKey).
+
+api.openapi:
+  description: |
+    The script `apps/api/src/openapi.ts` (`pnpm openapi`): writes `docs/openapi.json` at the repository root from the real app wiring, then exits.
+    Write the whole file. Imports: `import 'reflect-metadata';` first, then `mkdirSync`, `writeFileSync` from
+    `node:fs`, `dirname`, `join`, `resolve` from `node:path`, and `{ buildOpenApiDocument, createApp }` from
+    `./bootstrap`.
+    `async function generate()`:
+    1. `const { app } = await createApp(); await app.init();`
+    2. `const document = buildOpenApiDocument(app);`
+    3. `const target = resolve(join(__dirname, '..', '..', '..', 'docs', 'openapi.json'));`
+       `mkdirSync(dirname(target), { recursive: true });` write `JSON.stringify(document, null, 2) + '\n'` to it.
+    4. `await app.close();` then `` process.stdout.write(`OpenAPI written to ${target}\n`) ``.
+    Call `` generate().catch((error) => { process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`); process.exit(1); }); ``
+    The file exports nothing.
+
+db.seeds.demo-orders.seedDemoOrders:
+  description: |
+    Persist the fixture orders of `config/demo-orders.json` for one existing account, snapshotting current catalog products; returns how many it created.
+    - `const user = await prisma.user.findUnique({ where: { email } })`; missing →
+      `` throw new Error(`No account with e-mail ${email}. Register it first.`) ``. Never create users.
+    - For each fixture `{ orderNumber, status, placedAt, deliveredAt, deliveryNote, paymentMethod,
+      shippingAddress, items: [{ productSlug, quantity }] }`, sequentially:
+      - skip it when `prisma.order.findUnique({ where: { orderNumber } })` finds a row (reruns are safe);
+      - build items (may run in parallel): `product = await prisma.product.findUniqueOrThrow({ where: { slug: productSlug } })`,
+        then `{ productId: product.id, productName: product.name, sku: product.sku, quantity,
+        unitPriceMinor: product.priceMinor, lineTotalMinor: product.priceMinor * quantity, currency: product.currency }`;
+      - `subtotalMinor` = sum of line totals;
+      - `prisma.order.create({ data: { userId: user.id, orderNumber, status, placedAt: new Date(placedAt),
+        deliveredAt: deliveredAt ? new Date(deliveredAt) : null, deliveryNote, paymentMethod,
+        shippingAddress: { recipient: user.displayName, ...shippingAddress }, subtotalMinor,
+        totalMinor: subtotalMinor, items: { create: items } } })`, then count it.
+    Cast `status` to the enum type (`status as 'FULFILLED'`); the JSON gives a plain string.
+
+db.seeds.demo-products.seedDemoProducts:
+  description: |
+    Idempotently insert the demo taxonomy and demo products (inventory, description, category links) from the config JSON, never overwriting existing data.
+    1. Categories (private helper, returns a slug → id map): iterate `categories` (cast to
+       `Array<{ slug: string; name: string; parent?: string }>`; parents come before children). Resolve
+       `parentId` from the map; a `parent` not in the map → `` throw new Error(`Category ${slug} lists unknown parent ${parent}`) ``.
+       `saved = await prisma.category.upsert({ where: { slug }, update: {}, create: { slug, name, parentId } })`;
+       if there is a `parentId` and `saved.parentId` is null, `prisma.category.update` it to set `parentId`.
+       Existing names are kept.
+    2. For each `products` entry (`{ id, sku, name, priceMinor, inventoryQuantity, ... }`), sequentially:
+       - `extra` = the `content` entry with the same `id` AND `sku` (may be missing; optional
+         `description`, `categories: string[]`).
+       - `saved = await prisma.product.upsert({ where: { slug: product.id }, update: {}, create: { sku,
+         slug: product.id, name, description: extra?.description ?? null, priceMinor, currency: 'BRL',
+         inventory: { create: { quantity: product.inventoryQuantity } } } })`. Existing name, price,
+         `active` and stock stay untouched.
+       - `upgrade` = `RETIRED_FIXTURES[product.id]` exists and `saved.sku`, `saved.name` and
+         `saved.priceMinor` all equal it. `fill` = `extra.description` is set and `saved.description` is
+         empty. If either, one `prisma.product.update({ where: { id: saved.id }, data })` with
+         `name` and `priceMinor` from the fixture when `upgrade`, and `description` when `fill`.
+       - For each slug in `extra?.categories ?? []`: unknown → `` throw new Error(`Product ${product.id} lists unknown category ${slug}`) ``;
+         `prisma.productCategory.upsert({ where: { productId_categoryId: { productId: saved.id, categoryId } }, update: {}, create: { productId: saved.id, categoryId } })`.
+    Returns nothing.
+
+db.seeds.demo-reviews.seedDemoReviews:
+  description: |
+    Idempotently create demo rating aggregates and demo review texts for the demo products; returns `{ baselines, texts }` counts.
+    1. For each `products` entry with a truthy `reviewCount`: `saved = await prisma.product.findUnique({ where: { slug: product.id } })`;
+       skip unless found and `saved.sku === product.sku`. `extra` = the `content` entry with the same `id`
+       and `sku`. `distribution` = `extra.ratingDistribution` when it has exactly 5 values, else `[]`.
+       `prisma.reviewRatingBaseline.upsert({ where: { productId: saved.id }, update: {}, create: { productId: saved.id,
+       listingKey: extra?.variant?.group ?? product.id, ratingCount: product.reviewCount,
+       ratingSum: Math.round(product.rating * product.reviewCount), distribution } })`; `baselines++`.
+    2. For each `reviews` entry `{ fixtureKey, productSlug, author, rating, title, body, date, helpfulCount }`:
+       skip when no product has slug `productSlug`; else `prisma.review.upsert({ where: { fixtureKey }, update: {},
+       create: { productId, userId: null, authorName: author, rating, title, body, verifiedPurchase: false,
+       helpfulCount, source: 'DEMO', fixtureKey, createdAt: new Date(date + 'T12:00:00Z') } })`; `texts++`.
+    Return `{ baselines, texts }`.
+
+db.seeds.seed-demo-orders:
+  description: |
+    CLI script `database/seeds/seed-demo-orders.ts` (`pnpm seed:demo-orders`): seeds the demo orders for the account in `DEMO_ORDER_EMAIL`.
+    Write the whole file. Imports: `PrismaClient` from `@prisma/client`, `seedDemoOrders` from `./demo-orders`.
+    - `const email = process.env.DEMO_ORDER_EMAIL`; if empty:
+      `console.error('Set DEMO_ORDER_EMAIL to the e-mail of the account that owns the demo orders.')` and
+      `process.exit(1)`, before creating a client.
+    - Else `const prisma = new PrismaClient()`; `seedDemoOrders(prisma, email)`, then
+      `` console.log(`Demo orders: ${created} created; existing orders preserved.`) ``; `.catch` →
+      `console.error(error)` and `process.exitCode = 1`; `.finally(() => prisma.$disconnect())`.
+    Seed scripts are CLI tools: console output is expected here.
+
+db.seeds.seed-demo:
+  description: |
+    CLI script `database/seeds/seed-demo.ts` (`pnpm seed:demo`): synchronizes the demo catalog and demo reviews without touching existing records.
+    Write the whole file. Imports: `PrismaClient` from `@prisma/client`, `seedDemoProducts` from
+    `./demo-products`, `seedDemoReviews` from `./demo-reviews`.
+    `const prisma = new PrismaClient()`; `seedDemoProducts(prisma)`, then `seedDemoReviews(prisma)`, then with
+    its `{ baselines, texts }`:
+    `` console.log(`Demo catalog synchronized (${baselines} demo rating aggregates, ${texts} demo review texts); existing records preserved.`) ``.
+    `.catch` → `console.error(error)` and `process.exitCode = 1`; `.finally(() => prisma.$disconnect())`.
+    Console output is expected in this CLI script.
+
+db.seeds.seed:
+  description: |
+    CLI script `database/seeds/seed.ts` (`pnpm seed`): upserts a few base development categories and products, then runs the demo seeds.
+    Write the whole file. Imports: `PrismaClient` from `@prisma/client`, `seedDemoProducts` from
+    `./demo-products`, `seedDemoReviews` from `./demo-reviews`. `const prisma = new PrismaClient()` at top level.
+    Data, verbatim. Categories (slug, name): `electronics` `Electronics`; `books` `Books`; `home-kitchen` `Home & Kitchen`.
+    Products (sku, slug, name, description, priceMinor, category slugs, stock quantity):
+    - `ELEC-0001`, `usb-c-charger-65w`, `65W USB-C Charger`, `Compact GaN charger with two USB-C ports.`, 24990, [electronics], 120
+    - `ELEC-0002`, `wireless-mouse-quiet`, `Quiet Wireless Mouse`, `Silent-click mouse with a 12-month battery.`, 13500, [electronics], 64
+    - `BOOK-0001`, `designing-data-intensive-systems`, `Designing Data-Intensive Systems`, `Reference on storage, replication and consistency.`, 18900, [books], 30
+    - `HOME-0001`, `pour-over-coffee-kettle`, `Pour-Over Coffee Kettle`, `Gooseneck kettle, 1L, variable temperature.`, 32900, [home-kitchen, electronics], 18
+    `async function main()`, sequentially:
+    1. Each category: `prisma.category.upsert({ where: { slug }, update: { name }, create: { slug, name } })`.
+    2. Each product: `saved = prisma.product.upsert({ where: { sku }, update: data, create: data })` with
+       `data = { sku, slug, name, description, priceMinor }`; `prisma.inventory.upsert({ where: { productId: saved.id },
+       update: { quantity }, create: { productId: saved.id, quantity } })`; for each category slug,
+       `prisma.category.findUniqueOrThrow({ where: { slug } })` and `prisma.productCategory.upsert({ where:
+       { productId_categoryId: { productId, categoryId } }, update: {}, create: { productId, categoryId } })`.
+    3. `await seedDemoProducts(prisma)`; `await seedDemoReviews(prisma)`.
+    4. Count categories and products (`Promise.all`) and `` console.log(`seed complete: ${categoryCount} categories, ${productCount} products`) ``.
+    `main().catch((error) => { console.error('seed failed:', error); process.exitCode = 1; }).finally(() => prisma.$disconnect())`.
+
+db.index.formatMinor:
+  description: |
+    Format integer minor units as localized currency text; defaults to BRL in pt-BR.
+    Return `new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amountMinor / 100)`. The
+    pt-BR output separates `R$` from the number with a non-breaking space (U+00A0).
+    Keep the file's re-export lines (`Prisma`, `PrismaClient`, `CartStatus`, `OrderStatus` and the model
+    types from `@prisma/client`) exactly as listed in the imports.
+  examples:
+    - 'formatMinor(1234) == "R$\u00a012,34"'
+    - 'formatMinor(123456789) == "R$\u00a01.234.567,89"'
+
+contract.isApiErrorBody:
+  description: |
+    Type guard for the API error envelope: true when `value` is a non-null object whose `error` is a non-null object with a string `code`.
+    Nothing else is checked (`message` and `requestId` may be missing). Arrays, `null`, primitives,
+    `{ error: null }` and `{ error: 'text' }` are false.
+  examples:
+    - "isApiErrorBody({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Order not found', requestId: 'r' } }) == true"
+    - "isApiErrorBody({ error: { code: 404 } }) == false"
+    - "isApiErrorBody(null) == false"
+
+contract.isCardExpired:
+  description: |
+    True once the card's expiry month has fully passed, in local time; the expiry month itself is still valid.
+    With `year = now.getFullYear()`: expired when `expYear < year`, or `expYear === year` and
+    `expMonth < now.getMonth() + 1`. `now` defaults to `new Date()`.
+  examples:
+    - "isCardExpired({ expMonth: 5, expYear: 2026 }, new Date(2026, 4, 31)) == false"
+    - "isCardExpired({ expMonth: 4, expYear: 2026 }, new Date(2026, 4, 1)) == true"
+
+contract.cardLabel:
+  description: |
+    Short card label shown in checkout and orders: the brand's display name from `CARD_BRAND_LABELS`, then ` final `, then `last4`.
+  examples:
+    - "cardLabel({ brand: 'VISA', last4: '4242' }) == 'Visa final 4242'"
+    - "cardLabel({ brand: 'AMEX', last4: '0005' }) == 'American Express final 0005'"
+
+contract.installmentOptions:
+  description: |
+    Interest-free card plans for a total: 1x always, then more installments while each one stays at or above `minInstallmentMinor`.
+    For `count` from 1 to `Math.max(1, maxInstallments)`: `installmentMinor = Math.floor(totalMinor / count)`;
+    at the first `count > 1` with `installmentMinor < minInstallmentMinor` stop (no later counts);
+    otherwise push `{ count, installmentMinor, firstInstallmentMinor: totalMinor - installmentMinor * (count - 1) }`.
+    The first installment carries the remainder, so the installments add up to the total exactly.
+  examples:
+    - "installmentOptions(10000, { maxInstallments: 10, minInstallmentMinor: 500 })[2] == { count: 3, installmentMinor: 3333, firstInstallmentMinor: 3334 }"
+    - "installmentOptions(1999, { maxInstallments: 10, minInstallmentMinor: 500 }).map((o) => o.count) == [1, 2, 3]"
+    - "installmentOptions(499, { maxInstallments: 10, minInstallmentMinor: 500 }) == [{ count: 1, installmentMinor: 499, firstInstallmentMinor: 499 }]"
+
+contract.percentDiscountMinor:
+  description: |
+    The one rounding rule for percentage discounts: `floor(amountMinor * percent / 100)` in exact integer math, with input checks.
+    Throws `RangeError` (exact messages):
+    - `amountMinor` not a safe integer (NaN, 1.5) or negative → `'amountMinor must be a non-negative safe integer'`;
+    - `percent` not an integer or outside 0..100 → `'percent must be a whole number between 0 and 100'`;
+    - `amountMinor * percent` not a safe integer → `'amountMinor is too large'`.
+    Compute `scaled = amountMinor * percent` and return `(scaled - (scaled % 100)) / 100` (no float division
+    of the result).
+  examples:
+    - "percentDiscountMinor(19, 5) == 0"
+    - "percentDiscountMinor(20, 5) == 1"
+    - "percentDiscountMinor(2147483647, 5) == 107374182"
+
+contract.paymentDiscountPercent:
+  description: |
+    Discount rate for a payment method: `pricing.pixDiscountPercent` for `SIMULATED_PIX`, 0 for any other method.
+  examples:
+    - "paymentDiscountPercent('SIMULATED_PIX', { pixDiscountPercent: 5, maxInstallments: 10, minInstallmentMinor: 500 }) == 5"
+    - "paymentDiscountPercent('SIMULATED_CARD', { pixDiscountPercent: 5, maxInstallments: 10, minInstallmentMinor: 500 }) == 0"
+
+contract.pixPriceMinor:
+  description: |
+    Amount charged when paying `amountMinor` with Pix: `amountMinor - percentDiscountMinor(amountMinor, pricing.pixDiscountPercent)`.
+    Throws the same `RangeError`s as `percentDiscountMinor`.
+  examples:
+    - "pixPriceMinor(32900, { pixDiscountPercent: 5 }) == 31255"
+    - "pixPriceMinor(99999, { pixDiscountPercent: 5 }) == 95000"
+
+contract.REVIEW_ROUTES:
+  description: |
+    Paths of the reviews endpoints, built from `API_PREFIX` (`/api/v1`) and declared `as const`.
+    `reviews`: `/api/v1/reviews`; `summary`: `/api/v1/reviews/summary`; `summaries`: `/api/v1/reviews/summaries`;
+    `viewer`: `/api/v1/reviews/viewer`; `mine`: `/api/v1/reviews/mine`;
+    `helpful(reviewId)`: `` `${API_PREFIX}/reviews/${encodeURIComponent(reviewId)}/helpful` ``.
+  examples:
+    - "REVIEW_ROUTES.helpful('a b/c') == '/api/v1/reviews/a%20b%2Fc/helpful'"
+
+config.features.FeatureConfigSchema:
+  description: |
+    Zod schema for `config/features.yaml`: a `features` map of flags and a `routes` map binding route keys to features, rejecting bindings to unknown features.
+    Declare it as `z.object({ features: z.record(z.string().min(1), FeatureSchema),
+    routes: z.record(z.string().min(1), RouteBindingSchema).default({}) }).superRefine((config, ctx) => ...)`.
+    In the refinement, for every `[routeKey, binding]` of `config.routes` whose `binding.feature` is not a
+    key of `config.features`, call `ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['routes', routeKey, 'feature'], message })`
+    with `` message = `Route "${routeKey}" references unknown feature "${binding.feature}"` ``.
+  notes: |
+    The generated signature `(config, ctx) => unknown` is only the refinement callback: the export is the
+    refined schema itself, so that `FeatureConfig = z.infer<typeof FeatureConfigSchema>` is
+    `{ features: Record<string, { enabled: boolean; description?: string }>;
+    routes: Record<string, { feature: string; disabledBehavior: 'coming-soon' | 'not-found' }> }`.
+
+config.features.FeatureRegistry:
+  description: |
+    Validated, read-only feature flags: answers "is this feature on?" and "what does this route do when its feature is off?".
+    - `private constructor(private readonly config: FeatureConfig)`.
+    - `static fromConfig(raw)`: `new FeatureRegistry(FeatureConfigSchema.parse(raw))`; raw is already-parsed
+      YAML. Throws the ZodError for invalid input (non-boolean `enabled`, unknown `disabledBehavior`, or a
+      route bound to an unknown feature, whose message contains `unknown feature`).
+    - `isEnabled(feature)`: `config.features[feature]?.enabled ?? false` (unknown features are off).
+    - `routeState(routeKey)`: route not in `config.routes` → `'enabled'` (not gated); its feature enabled →
+      `'enabled'`; else the binding's `disabledBehavior` (`'coming-soon'` by default, or `'not-found'`).
+    - `enabledFeatures()`: names of the enabled features, sorted.
+    - `snapshot()`: the parsed config object.
+
+config.loader.ConfigValidationError:
+  description: |
+    Error thrown when configuration fails validation; carries the Zod issues.
+    `super(message)`, then `this.name = 'ConfigValidationError'`; `issues` is a public readonly constructor
+    parameter property defaulting to `[]`.
+
+config.loader.readYamlFile:
+  description: |
+    Read and parse a YAML file: `undefined` when the path does not exist, otherwise the parsed value, or `{}` for an empty document.
+    `existsSync(path)` false → `undefined`; else `parseYaml(readFileSync(path, 'utf8')) ?? {}`.
+
+config.loader.isPlainObject:
+  description: |
+    Type guard for a plain object: `typeof value === 'object' && value !== null && !Array.isArray(value)`.
+
+config.loader.mergeDeep:
+  description: |
+    Deep-merge any number of sources into a new object, later sources winning; nested plain objects merge, arrays and scalars replace.
+    Skip sources that are not plain objects (undefined, null, arrays). For each key of a source: if both
+    the value and the current result value are plain objects, the result is `mergeDeep(current, value)`;
+    otherwise the value replaces it. Never mutates the inputs.
+  examples:
+    - "mergeDeep({ a: { b: 1, c: 2 } }, { a: { c: 3 } }) == { a: { b: 1, c: 3 } }"
+    - "mergeDeep(undefined, { a: [1, 2] }, { a: [3] }) == { a: [3] }"
+
+config.loader.applyEnvOverrides:
+  description: |
+    Return a deep copy of `base` (`structuredClone`) with environment values written at the dotted paths of `envMap`, coerced to booleans or numbers.
+    For each `[path, envVar]` of `envMap`: `raw = env[envVar]`; skip when undefined or `''`. Walk the
+    path segments, replacing any missing or non-object intermediate with `{}`, and set the last segment
+    to the coerced value: `'true'` → `true`, `'false'` → `false`, a string for which
+    `Number(raw)` is not NaN → that number (`'8080'` → 8080, `'2.5'` → 2.5), anything else the string
+    itself (`'five'`). `base` is not mutated.
+  examples:
+    - "applyEnvOverrides({ app: { port: 3000, logLevel: 'info' }, openapi: { enabled: true } }, { 'app.port': 'PORT', 'openapi.enabled': 'OPENAPI_ENABLED' }, { PORT: '8080', OPENAPI_ENABLED: 'false' }) == { app: { port: 8080, logLevel: 'info' }, openapi: { enabled: false } }"
+    - "applyEnvOverrides({ app: { port: 3000 } }, { 'app.port': 'PORT' }, { PORT: '' }) == { app: { port: 3000 } }"
+
+config.loader.loadConfig:
+  description: |
+    Load layered configuration (`default.yaml`, then `<environment>.yaml`, then env vars), validate it with the schema, and return the parsed result.
+    1. `defaults = readYamlFile(join(configDir, 'default.yaml'))`; `` perEnv = readYamlFile(join(configDir, `${environment}.yaml`)) ``
+       (missing files are skipped by the merge).
+    2. `merged = applyEnvOverrides(mergeDeep(defaults, perEnv), envMap ?? {}, env ?? process.env)`.
+    3. `result = schema.safeParse(merged)`; success → return `result.data` (schema defaults applied, e.g.
+       `checkout.pixDiscountPercent` 5).
+    4. Failure → `throw new ConfigValidationError(message, result.error.issues)`. `message` is
+       `` `Invalid configuration for environment "${environment}":\n` `` followed by one line per issue,
+       the lines joined with `'\n'`; each line is two spaces, `- `, the issue path joined with `.`
+       (`(root)` when empty), `: ` and the issue message, i.e. `` `  - ${issue.path.join('.') || '(root)'}: ${issue.message}` ``.
+       So a bad Pix rate mentions `checkout.pixDiscountPercent` and an empty URL shows the schema's
+       `database.url is required (set DATABASE_URL)`.

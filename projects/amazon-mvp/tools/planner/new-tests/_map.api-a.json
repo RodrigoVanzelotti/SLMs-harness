@@ -1,0 +1,11 @@
+{
+  "api.auth.session-token.tokensMatch": [
+    "apps/api/src/modules/auth/session-token.tokensMatch.new.spec.ts"
+  ],
+  "api.catalog.catalog-search.escapeLike": [
+    "apps/api/src/modules/catalog/catalog-search.escapeLike.new.spec.ts"
+  ],
+  "api.users.users.api.normalizeEmail": [
+    "apps/api/src/modules/users/users.api.normalizeEmail.new.spec.ts"
+  ]
+}

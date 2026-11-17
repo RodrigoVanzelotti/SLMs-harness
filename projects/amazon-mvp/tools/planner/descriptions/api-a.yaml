@@ -1,0 +1,454 @@
+# Behavior text for group api-a (auth, cart, catalog, lists, users API modules).
+# Merged into spec/contracts by tools/planner/build_bundle.py.
+
+api.auth.account.controller.AccountController:
+  description: |
+    HTTP handlers for changing the signed-in account's display name, password and e-mail; every route needs a session.
+    None of the routes is `@Public()`, so the global `SessionGuard` answers 401 `AUTH_SESSION_REQUIRED` without a valid cookie.
+    Each handler takes the identity from `@CurrentAuth()` (`{ userId, sessionId, expiresAt }`), calls `AccountService` and returns its promise unchanged:
+    - `updateProfile` (`PATCH /account/profile`, 200): `account.updateProfile(auth.userId, dto.displayName)` → `UserProfile`.
+    - `changePassword` (`POST /account/password`, 200): `account.changePassword(auth, dto.currentPassword, dto.newPassword)` → `{ success: true, revokedSessions }`. Pass the whole identity: the service needs `sessionId` to keep this session signed in.
+    - `changeEmail` (`POST /account/email`, 200): `account.changeEmail(auth, dto.email, dto.currentPassword)` → `UserProfile`.
+    The DTOs have already validated and normalized the body (trimmed display name of 2 to 80 characters, lowercased e-mail, password lengths). Errors such as 403 for a wrong current password or 409 for a taken e-mail come from the service.
+
+api.auth.account.service.AccountService:
+  description: |
+    Edits to the signed-in account: display name, password and e-mail. Credential changes need the current password and sign out every other session.
+
+    Folded helper, a private method `confirmPassword(userId, password)`:
+    - Load the user with `users.findByIdWithSecret(userId)`. If there is none, throw `ApiError.sessionRequired()` (401).
+    - If `passwords.verify(user.passwordHash, password)` is false, call `logger.warn` with `failed password confirmation for user ${userId}` and context `'AccountService'`, then throw `ApiError.currentPasswordInvalid()`. That is 403, `ErrorCode.AUTH_INVALID_CREDENTIALS`, message `Invalid credentials`.
+    - Otherwise return the user (`UserWithSecret`).
+
+    - `updateProfile(userId, displayName)`: if `users.findById(userId)` is null, throw `ApiError.sessionRequired()`. Otherwise call `users.updateDisplayName(userId, displayName)`, log `display name changed: ${userId}` with `logger.log` (context `'AccountService'`), and return `toProfile(updated)`.
+    - `changePassword(session, currentPassword, newPassword)`, in this order:
+      1. `confirmPassword(session.userId, currentPassword)`. A wrong password changes nothing and revokes nothing.
+      2. If `newPassword === currentPassword`, throw `new ApiError(ErrorCode.VALIDATION_FAILED, msg, HttpStatus.BAD_REQUEST, [{ field: 'newPassword', message: msg }])`, where msg is `newPassword must be different from the current password`.
+      3. `users.updatePasswordHash(session.userId, await passwords.hash(newPassword))`.
+      4. `revokedSessions = await sessions.revokeOthersForUser(session.userId, session.sessionId)`.
+      5. Log `password changed: ${userId}; ${revokedSessions} other session(s) revoked`, then return `{ success: true, revokedSessions }`.
+    - `changeEmail(session, email, currentPassword)`:
+      1. `user = await confirmPassword(session.userId, currentPassword)`.
+      2. If `normalizeEmail(email) === user.email`, return `toProfile(user)` without writing or revoking anything.
+      3. If `users.existsByEmail(email)` is true, throw `ApiError.emailAlreadyRegistered()` (409, `AUTH_EMAIL_ALREADY_REGISTERED`).
+      4. Call `users.updateEmail(session.userId, email)`. If it throws and `isUniqueViolation(error)` is true, throw `ApiError.emailAlreadyRegistered()`; otherwise rethrow.
+      5. Call `sessions.revokeOthersForUser(session.userId, session.sessionId)`, log `email changed: ${userId}; ${n} other session(s) revoked`, and return `toProfile(updated)`.
+
+    Never log or return a password or a hash. Profiles always go through `toProfile`, which drops `passwordHash`.
+
+api.auth.auth.controller.AuthController:
+  description: |
+    HTTP routes to identify an e-mail, register, log in, log out and read the current session; they set and clear the HttpOnly session cookie.
+    `this.config.session` has `cookieName` (string), `secureCookie` (boolean), `sameSite` (`'lax' | 'strict' | 'none'`) and `ttlHours`.
+
+    Folded helpers:
+    - Request meta: `{ userAgent: request.header('user-agent'), ipAddress: request.ip }`.
+    - `cookieOptions(maxAgeMs)`: `{ httpOnly: true, secure: config.session.secureCookie, sameSite: config.session.sameSite, path: '/', maxAge: maxAgeMs }`.
+    - Setting the session cookie: `response.cookie(config.session.cookieName, session.token, cookieOptions(session.expiresAt.getTime() - Date.now()))`.
+
+    Handlers:
+    - `identify(dto)`: return `this.auth.identify(dto.email)` → `{ exists }`.
+    - `register(dto, request, response)`: `result = await this.auth.register(dto, meta)`. Set the session cookie from `result.session`, then return `{ user: result.profile, expiresAt: result.session.expiresAt.toISOString() }`.
+    - `login(dto, request, response)`: the same as `register`, but with `this.auth.login(dto, meta)`. The service throws before any cookie is set, so a failed login sends no `Set-Cookie`.
+    - `logout(request, response)`: `await this.auth.logout(request.cookies?.[cookieName])` (undefined when there is no cookie). Then call `response.clearCookie(cookieName, cookieOptions(0))` and return `{ success: true }`. The route is public, so it works without a valid session.
+    - `me(auth)`: return `this.auth.currentSession(auth.userId, auth.expiresAt)` → `{ user, expiresAt }`.
+    The session cookie is the only cookie these routes set; clients read the first `Set-Cookie` header.
+
+api.auth.auth.service.AuthService:
+  description: |
+    Registers accounts, checks credentials and starts or ends sessions. A failed login gives the same error whether or not the e-mail exists.
+
+    - `register(input, meta = {})`:
+      1. If `users.existsByEmail(input.email)` is true, throw `ApiError.emailAlreadyRegistered()` (409, `ErrorCode.AUTH_EMAIL_ALREADY_REGISTERED`, `That email is already registered`).
+      2. `passwordHash = await passwords.hash(input.password)`.
+      3. `user = await users.create({ email: input.email, passwordHash, displayName: input.displayName })`. If it throws and `isUniqueViolation(error)` is true (a concurrent registration won the race), throw `ApiError.emailAlreadyRegistered()`; otherwise rethrow.
+      4. Log `user registered: ${user.id}` with `logger.log` (context `'AuthService'`). Then `session = await sessions.issue(user.id, meta)` and return `{ session, profile: toProfile(user) }`.
+    - `identify(email)`: return `{ exists: await users.existsByEmail(email) }`. It reveals nothing else about the account.
+    - `login(input, meta = {})`:
+      1. `user = await users.findByEmailWithSecret(input.email)`.
+      2. If there is no user, spend comparable time before failing. Set the module variable with `decoyHash ??= await passwords.hash('decoy-password-for-timing')` (computed once, on first use), run `await passwords.verify(decoyHash, input.password)`, then throw `ApiError.invalidCredentials()`.
+      3. If `passwords.verify(user.passwordHash, input.password)` is false, call `logger.warn` with `failed login for user ${user.id}`, then throw `ApiError.invalidCredentials()`.
+      Both failures give the same error: 401, `ErrorCode.AUTH_INVALID_CREDENTIALS`, message `Invalid credentials`.
+      4. `session = await sessions.issue(user.id, meta)`, log `login succeeded: ${user.id}`, and return `{ session, profile: toProfile(user) }`.
+    - `logout(token)`: call `sessions.revoke(token)` only when `token` is truthy. A missing cookie is not an error.
+    - `currentSession(userId, expiresAt)`: if `users.findById(userId)` is null, throw `ApiError.sessionRequired()` (401). Otherwise return `{ user: toProfile(user), expiresAt: expiresAt.toISOString() }`.
+
+    Never put the password or its hash in a result or a log line.
+
+api.auth.auth.service.toProfile:
+  description: |
+    Maps a user record to the public `UserProfile`: `{ id, email, displayName, createdAt }`, with `createdAt` as an ISO-8601 string.
+    Copy exactly those four fields and convert `createdAt` with `createdAt.toISOString()`. Every other property of the input is dropped, such as `passwordHash` on a `UserWithSecret`.
+
+api.auth.auth.service.isUniqueViolation:
+  description: |
+    True when `error` is Prisma's unique-constraint violation, that is a non-null object whose `code` property is `'P2002'`.
+    Anything else is `false`: other codes, `null`, `undefined`, strings. It never throws.
+
+api.auth.password.service.PasswordService:
+  description: |
+    Hashes and verifies passwords with Argon2id, using the module's `OPTIONS`.
+    - `hash(plaintext)`: return `hash(plaintext, OPTIONS)` from `@node-rs/argon2`. The result is a PHC string that starts with `$argon2id$` and is salted, so hashing the same password twice gives different strings.
+    - `verify(passwordHash, plaintext)`: return `await verify(passwordHash, plaintext, OPTIONS)`, which is true on a match and false otherwise. If it throws, for example on a malformed or legacy hash such as `not-a-hash`, return `false`. It never rejects.
+
+api.auth.protected-example.controller.ProtectedExampleController:
+  description: |
+    Example route that requires a session; it proves the session guard works end to end.
+    `example(auth)` (`GET /protected/example`) returns `{ message: 'You are authenticated', userId: auth.userId }`. Without a valid session, the global guard answers 401 `AUTH_SESSION_REQUIRED` before the handler runs.
+
+api.auth.session-token.generateSessionToken:
+  description: |
+    Returns a new opaque session token: 32 bytes from `randomBytes`, encoded as base64url.
+    The result is 43 characters from `[A-Za-z0-9_-]`, with no padding. Every call is independent, and the token carries no claims.
+
+api.auth.session-token.hashSessionToken:
+  description: |
+    SHA-256 of the token as a 64-character lowercase hex string. This is the only form of a token that is stored or looked up.
+    It is deterministic: the same token always gives the same hash, and the hash never equals the token.
+  examples:
+    - "hashSessionToken('abc') == 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'"
+
+api.auth.session-token.tokensMatch:
+  description: |
+    Constant-time equality of two strings, compared as UTF-8 bytes.
+    Convert both with `Buffer.from`. Return `false` when the byte lengths differ, without calling `timingSafeEqual`, which would throw. Otherwise return `timingSafeEqual(left, right)`.
+  examples:
+    - "tokensMatch('abc123', 'abc123') == true"
+    - "tokensMatch('abc', 'abcd') == false"
+    - "tokensMatch('é', 'e') == false"
+
+api.auth.session.guard.Public:
+  description: |
+    Decorator that marks a route or controller as public, so the global `SessionGuard` lets it through without a session.
+    Return `SetMetadata(IS_PUBLIC, true)`. It is used as `@Public()`.
+
+api.auth.session.guard.SessionGuard:
+  description: |
+    Global guard: lets `@Public()` routes through, and otherwise requires a valid session cookie and attaches the identity to the request.
+    `canActivate(context)`:
+    1. If `this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, [context.getHandler(), context.getClass()])` is true, return `true`.
+    2. Get the request with `context.switchToHttp().getRequest<AuthenticatedRequest>()`. The token is `request.cookies?.[this.config.session.cookieName]`; cookies are parsed by cookie-parser, and `config.session.cookieName` is a string.
+    3. `session = await this.sessions.validate(token)`. When it is null (missing, unknown, forged, expired or revoked token), throw `ApiError.sessionRequired()`: 401, `ErrorCode.AUTH_SESSION_REQUIRED`, message `Sign in to continue`.
+    4. Set `request.auth = { userId, sessionId, expiresAt }` from the session, call `RequestContextStore.setUserId(session.userId)`, and return `true`.
+
+api.auth.session.guard.CurrentAuth:
+  description: |
+    Parameter decorator `@CurrentAuth()` that injects `request.auth`, the identity set by `SessionGuard`, into a handler parameter.
+    Export the result of `createParamDecorator(...)`, not a plain function: controllers call it as `@CurrentAuth()`. The signature above is the callback passed to `createParamDecorator`, `(_data: unknown, context: ExecutionContext)`. It returns `context.switchToHttp().getRequest<AuthenticatedRequest>().auth`.
+
+api.auth.session.service.SessionService:
+  description: |
+    PostgreSQL session store (`prisma.session`): issues opaque tokens, stores only their SHA-256 hash, and validates and revokes them.
+    Session fields: `id`, `userId`, `tokenHash` (unique), `expiresAt`, `revokedAt` (null while active), `userAgent`, `ipAddress`.
+    - `issue(userId, meta = {})`:
+      - `token = generateSessionToken()` and `expiresAt = new Date(Date.now() + this.config.session.ttlHours * 3_600_000)`.
+      - Create the row: `prisma.session.create({ data: { userId, tokenHash: hashSessionToken(token), expiresAt, userAgent: meta.userAgent?.slice(0, 512), ipAddress: meta.ipAddress?.slice(0, 64) } })`.
+      - Return `{ token, expiresAt }`. The plaintext token is returned once and never stored.
+    - `validate(token)`:
+      - For a falsy token, return `null` without a query.
+      - Otherwise use `findUnique({ where: { tokenHash: hashSessionToken(token) }, select: { id: true, userId: true, expiresAt: true, revokedAt: true } })`.
+      - Return `null` when there is no row, when `revokedAt !== null`, or when `expiresAt.getTime() <= Date.now()`. All three cases look the same to the caller.
+      - Otherwise return `{ sessionId: row.id, userId: row.userId, expiresAt: row.expiresAt }`.
+    - `revoke(token)`: `updateMany({ where: { tokenHash: hashSessionToken(token), revokedAt: null }, data: { revokedAt: new Date() } })`. It is idempotent and returns nothing.
+    - `revokeAllForUser(userId)`: `updateMany` with the filter `{ userId, revokedAt: null }`, setting `revokedAt: new Date()`. Return the result's `count`.
+    - `revokeOthersForUser(userId, keepSessionId)`: the same, with `NOT: { id: keepSessionId }` added to the filter. Return `count`; sessions that were already revoked are not counted.
+    - `purgeExpired()`: `deleteMany({ where: { expiresAt: { lt: new Date() } } })`. Return `count`.
+
+api.cart.cart.controller.CartController:
+  description: |
+    HTTP routes for the signed-in user's persistent cart; every handler returns the full cart (`CartResponse`) from `CART_API`.
+    Every route needs a session. Use only `auth.userId` from `@CurrentAuth()`, never a user id from the body or the URL. Return the service promises directly; the service raises the 404 and 409 errors.
+    - `get` (`GET /cart`): `cart.getActiveCart(auth.userId)`.
+    - `add` (`POST /cart/items`, 200): `cart.addItem(auth.userId, dto.productId, dto.quantity)`, which adds to an existing line.
+    - `update` (`PATCH /cart/items/:productId`): `cart.updateQuantity(auth.userId, params.productId, dto.quantity)`, which sets the quantity.
+    - `remove` (`DELETE /cart/items/:productId`): `cart.removeItem(auth.userId, params.productId)`.
+    - `clear` (`DELETE /cart/items`): `cart.clear(auth.userId)`.
+
+api.cart.cart.service.RefreshCatalogSnapshot:
+  description: |
+    Private marker error, an empty subclass of `Error`: "the catalog data read before the cart transaction is stale, so retry".
+    `CartService` throws it inside the cart transaction when the cart holds a product that is missing from that catalog data. It catches only this class, and retries. The class has no body and is not exported.
+
+api.cart.cart.service.CartService:
+  description: |
+    Persistent cart per user (`prisma.cart` and `prisma.cartItem`), priced from live catalog data; it also provides the cart side of checkout.
+    Models:
+    - `Cart { id, userId, status, createdAt }`, where `status` is `'ACTIVE' | 'CONVERTED' | 'ABANDONED'`. A user has at most one ACTIVE cart.
+    - `CartItem { id, cartId, productId, quantity, createdAt }`, unique on `cartId_productId`.
+
+    Account lock: run `tx.$queryRaw` with the template `SELECT pg_advisory_xact_lock(hashtext(${userId}))::text`. The `::text` cast lets Prisma read the void result. Every method uses the same key, `lockForCheckout` included, so cart edits and checkout of one account run one at a time.
+
+    Folded helpers (private methods):
+    - `withCart(userId, work)`:
+      - Runs `prisma.$transaction(async (tx) => ...)`, and takes the lock first.
+      - Loads the active cart with `tx.cart.findFirst({ where: { userId, status: 'ACTIVE' }, include: { items: { orderBy: { createdAt: 'asc' } } }, orderBy: { createdAt: 'asc' } })`, which may be null.
+      - Returns `work(tx, cart)`.
+    - `view(userId, cart)`:
+      - Runs outside any transaction: `catalog.findByIds(itemProductIds)`, with `[]` when there is no cart.
+      - For each item, in cart order: if its product is missing, throw `ApiError.notFound('Product')`. Otherwise the line is `{ productId, product, quantity, unitPriceMinor: product.priceMinor, lineTotalMinor: product.priceMinor * quantity }`.
+      - Returns `{ id: cart?.id ?? null, userId, lines, itemCount, subtotalMinor, currency }`. `itemCount` is the sum of the quantities, `subtotalMinor` is the sum of the line totals, and `currency` is `lines[0]?.product.currency ?? 'BRL'`.
+      - Prices are always the current catalog price.
+
+    - `getActiveCart(userId)`: `withCart` returning the current cart, then `view`. It never creates a cart.
+    - `addItem` and `updateQuantity` share `setItem(userId, productId, quantity, increment)`, with `increment` true for add and false for update. It makes up to 5 attempts:
+      1. Outside the transaction, read the product ids of the user's active items: `prisma.cartItem.findMany({ where: { cart: { userId, status: 'ACTIVE' } }, select: { productId: true } })`. Then call `catalog.findByIds` on the unique set `[productId, ...ids]`. If the requested product is missing, throw `ApiError.notFound('Product')` (404).
+      2. Inside `withCart`, check in this order:
+         - If any item's product is missing from that catalog data, throw `RefreshCatalogSnapshot`, which starts the next attempt.
+         - `existing` is the item for `productId`. An update without `existing` throws `ApiError.notFound('Cart item')` (404).
+         - `target = quantity + (increment ? existing?.quantity ?? 0 : 0)`. Fail with 409 `CART_LIMIT_EXCEEDED` and `A quantidade deve estar entre 1 e 99; limite de 100 produtos por carrinho.` when `target` is not an integer, is below 1 or above `MAX_CART_QUANTITY`, or when this is a new line and the cart already has 100 items.
+         - If `!product.active` or `target > product.availableQuantity`, fail with 409 `CART_ITEM_UNAVAILABLE` and `Quantidade indisponível em estoque. Atualize o carrinho e tente novamente.`
+         - If any item's product has a different `currency` from the product's, fail with 409 `CART_ITEM_UNAVAILABLE` and `Os produtos do carrinho devem usar a mesma moeda.`
+         - Use the current cart, or create one with `tx.cart.create({ data: { userId }, include: { items: true } })`.
+         - Write the line with `tx.cartItem.upsert({ where: { cartId_productId: { cartId, productId } }, create: { cartId, productId, quantity: target }, update: { quantity: target } })`.
+         - Read the cart again, with items ordered by `createdAt` ascending.
+      3. Return `view` of that cart. After 5 attempts that all hit stale catalog data, fail with 409 `CART_LIMIT_EXCEEDED` and `O carrinho mudou em outra aba. Atualize e tente novamente.`
+      Never call the catalog while holding the lock.
+    - `removeItem(userId, productId)`: in `withCart`, return null when there is no cart. Otherwise run `tx.cartItem.deleteMany({ where: { cartId, productId } })` and continue with the cart minus that item. Then return `view`. Removing a product that is not in the cart is not an error.
+    - `clear(userId)`: like `removeItem`, but delete every item of the cart (`deleteMany({ where: { cartId } })`). The view keeps the cart id and has no lines.
+    - `lockForCheckout(userId, tx)`: take the account lock on `tx`.
+    - `checkoutItems(userId, cartId, tx)`: `tx.cart.findFirst({ where: { id: cartId, userId, status: 'ACTIVE' }, include: { items: true } })`. If there is no such cart or it has no items, fail with 409 `CART_ITEM_UNAVAILABLE` and `Seu carrinho está vazio ou já foi finalizado.` Return `[{ productId, quantity }]`.
+    - `convertForCheckout(userId, cartId, tx)`: `tx.cart.updateMany({ where: { id: cartId, userId, status: 'ACTIVE' }, data: { status: 'CONVERTED' } })`. If the count is 0, throw `ApiError.notFound('Cart')`. Then run `tx.cartItem.deleteMany({ where: { cartId } })`.
+    - `markConverted(cartId)`: `prisma.cart.findUnique({ where: { id: cartId } })`. If there is none, throw `ApiError.notFound('Cart')`. Otherwise, inside `withCart(cart.userId, ...)`, set its status to `'CONVERTED'`.
+    Every 409 above is `new ApiError(ErrorCode.<code>, message, HttpStatus.CONFLICT)`.
+
+api.catalog.catalog-browse.controller.CatalogBrowseController:
+  description: |
+    Public read-only routes for the category taxonomy and the facet counts of listing pages, delegating to `CATALOG_API`.
+    Both handlers are `@Public()`.
+    - `categories()` (`GET /catalog/categories`): return `catalog.listCategories()`, which lists every category as `{ slug, name, parentSlug }`.
+    - `facets(query)` (`GET /catalog/facets`): return `catalog.productFacets(query)`. The query DTO accepts only `category`, `q` and `slugs`; validation rejects other parameters with 400. The counts cover the search scope, so price and stock refinements do not change them.
+
+api.catalog.catalog-search.normalizeText:
+  description: |
+    Lowercase, accent-free form of a string: NFD-normalize, delete the combining marks U+0300 to U+036F, then `toLowerCase()`.
+    It must agree with the SQL side, which folds text with `translate(lower(col), ACCENTED, PLAIN)`: every character of `ACCENTED` normalizes to the character at the same index in `PLAIN`. Other characters, such as spaces, punctuation and digits, are kept.
+  examples:
+    - "normalizeText('Fritadeira ELÉTRICA Câmera Ação') == 'fritadeira eletrica camera acao'"
+    - "normalizeText('ÇÃO') == 'cao'"
+
+api.catalog.catalog-search.escapeLike:
+  description: |
+    Puts a backslash before each LIKE wildcard (`%`, `_`) and before each backslash, which is PostgreSQL's default LIKE escape character.
+    Every other character is left unchanged, including case and accents.
+  examples:
+    - 'escapeLike("50%_off\\") == "50\\%\\_off\\\\"'
+    - 'escapeLike("fone bluetooth") == "fone bluetooth"'
+
+api.catalog.catalog-search.searchTokens:
+  description: |
+    Splits a catalog search query into at most 8 normalized, deduplicated words; returns `[]` for `undefined`, `''` or a query with no letters or digits.
+    Steps, in order:
+    1. Keep the first `CATALOG_SEARCH_MAX_LENGTH` (100) characters of the raw query, then apply `normalizeText`.
+    2. Split on every run of characters that are not Unicode letters or digits (`/[^\p{L}\p{N}]+/u`), and drop empty strings.
+    3. If any word is longer than one character, drop every one-letter word. Otherwise keep them all.
+    4. Stem: a word longer than 3 characters that ends in `s` loses that final `s`. So `fones` becomes `fone` and `tênis` becomes `teni`, but `gás` stays `gas`.
+    5. Remove duplicates, keeping the order of first occurrence, then keep the first `MAX_TOKENS` (8).
+  examples:
+    - "searchTokens('  Fone   e fone-Bluetooth! ') == ['fone', 'bluetooth']"
+    - "searchTokens('Fones tênis gás') == ['fone', 'teni', 'gas']"
+    - "searchTokens('e x') == ['e', 'x']"
+
+api.catalog.catalog-search.containsPattern:
+  description: |
+    Builds the `%token%` LIKE pattern for an already normalized token: the token passed through `escapeLike`, with `%` on both sides.
+    The token is not normalized again.
+  examples:
+    - "containsPattern('fone') == '%fone%'"
+    - 'containsPattern("100%") == "%100\\%%"'
+
+api.catalog.catalog.controller.CatalogController:
+  description: |
+    Public routes for the product listing and product details, delegating to `CATALOG_API`.
+    Both handlers are `@Public()`.
+    - `detail(params)` (`GET /catalog/products/:productId`):
+      - Call `catalog.getProduct(params.productId)`. The identifier may be a UUID or a slug of at most 200 characters; validation rejects longer ones with 400.
+      - When it returns null, throw `new NotFoundException('Product not found')`. The global filter turns this into a 404 with code `RESOURCE_NOT_FOUND`.
+      - Otherwise return the details unchanged. Inactive products are returned too, with `active: false` and `availableQuantity: 0`.
+    - `list(query)` (`GET /catalog/products`): return `catalog.listProducts(query)` → `{ items, total }`.
+
+api.catalog.catalog.service.folded:
+  description: |
+    Returns the lowercase, accent-free form of a SQL column expression, `translate(lower(<column>), ACCENTED, PLAIN)`, built with `Prisma.sql`.
+    `ACCENTED` and `PLAIN` are interpolated as bound parameters, not spliced into the SQL text. The result is compared with `LIKE` against the output of `containsPattern(...)`.
+
+api.catalog.catalog.service.categoryNameMatch:
+  description: |
+    SQL condition (`Prisma.sql`) that is true when one of the product's own categories has a folded name that matches the LIKE `pattern`.
+    It is an `EXISTS` subquery over `product_categories` (`product_id`, `category_id`) joined to `categories` (`id`, `name`) on `categories.id = product_categories.category_id`. It keeps rows where `product_id = p.id` and `folded(<category name column>) LIKE pattern`.
+    The outer query must alias `products` as `p`, and `pattern` is a bound parameter. Only the product's direct categories count, not their ancestors.
+
+api.catalog.catalog.service.CatalogService:
+  description: |
+    Catalog reads (search listing, taxonomy, facets, product details, lookups) and the stock decrement for checkout, using Prisma and raw SQL.
+
+    Raw SQL conventions:
+    - Tables: `products(id, slug, sku, name, description, price_minor, currency, active, created_at)`, `inventory(product_id, quantity, reserved, updated_at)`, `product_categories(product_id, category_id)`, `categories(id, parent_id, slug, name)`.
+    - Product queries read `products p LEFT JOIN inventory i ON i.product_id = p.id`. Recursive category walks stop at depth 20.
+    - Cast counts with `::int` so they come back as numbers, and ids or arrays with `::uuid`, `::uuid[]`, `::text[]`.
+
+    Folded helpers:
+    - `toCatalogProduct(product with inventory)`:
+      - `availableQuantity = active ? Math.max(0, (inventory?.quantity ?? 0) - (inventory?.reserved ?? 0)) : 0`. A product without an inventory row has 0.
+      - Returns exactly `{ id, sku, slug, name, description, priceMinor, currency, active, availableQuantity, inStock: availableQuantity > 0 }`.
+    - `whereSql(query, tokens)` returns the conditions joined with ` AND `, or `null` when nothing can match:
+      - Always `p.active = true`.
+      - `category`: find the ids of the category with that slug and of all its descendants, by a recursive walk down `parent_id`. If there are none, return `null`. Otherwise add an `EXISTS` on `product_categories` with `category_id = ANY(ids)`.
+      - `slugs`, when given: `p.slug = ANY(slugs)`.
+      - `minPriceMinor`: `p.price_minor >= min`. `maxPriceMinor`: `p.price_minor < max`.
+      - `inStock`: `AVAILABLE_SQL`.
+      - Every token: `(NAME LIKE pat OR DESCRIPTION LIKE pat OR categoryNameMatch(pat))`, where `pat = containsPattern(token)`.
+    - `orderSql(sort, tokens, q)`:
+      - `price-asc` / `price-desc` order by `price_minor` ascending / descending, and `newest` by `created_at` descending; each then by `p.name ASC, p.id ASC`.
+      - Otherwise (`relevance` or none): `p.name ASC, p.id ASC` without tokens. With tokens, order by score DESC, then name and id.
+      - Score: 5 if `NAME LIKE escapeLike(normalizeText(q).trim()) + '%'` (the name starts with the whole query), plus, per token, 3 for a name match, 2 for `categoryNameMatch` and 1 for a description match.
+
+    - `listProducts(query)`:
+      - `page = query.page ?? 1`, `pageSize = query.pageSize ?? 12`, `tokens = searchTokens(query.q)`. If `where` is null, return `{ items: [], total: 0 }`.
+      - In one `prisma.$transaction([...])`, with the same WHERE, select the ranked page of ids (`p.id::text AS id`, `LIMIT pageSize OFFSET (page - 1) * pageSize`) and `COUNT(*)::int AS total`.
+      - Load the page with `prisma.product.findMany({ where: { id: { in: ids } }, include: { inventory: true } })` (skip it when there are no ids). Return `{ items, total }`, with `items` in ranked order through `toCatalogProduct`. A page past the end has `items: []` and the real `total`.
+    - `listCategories()`: `prisma.category.findMany({ include: { parent: { select: { slug: true } } }, orderBy: [{ name: 'asc' }, { slug: 'asc' }] })`, mapped to `{ slug, name, parentSlug: parent?.slug ?? null }`.
+    - `productFacets(query)`:
+      - Build `where` from only `{ q, category, slugs }`.
+      - Buckets come from the bounds `[0, ...CATALOG_PRICE_BOUNDS_MINOR]`: bucket k is `{ minMinor: bounds[k], maxMinor: bounds[k + 1] ?? null }`. The minimum is inclusive, the maximum exclusive, and the last bucket is open.
+      - If `where` is null, return total 0, inStock 0, every bucket with count 0, `categories: []`, `slugs: []` and `slugsTruncated: false`.
+      - Otherwise run three queries in one `$transaction([...])`:
+        1. The total, the in-stock count (`AVAILABLE_SQL`) and one count per bucket.
+        2. `{ slug, count }` per category, ordered by slug: distinct matched products in the category or any descendant (each product's categories plus all their ancestors).
+        3. The matched slugs, ordered by slug, `LIMIT CATALOG_FACET_SLUG_LIMIT + 1`. Return them capped at the limit, with `slugsTruncated` true when there were more.
+    - `consumeForOrder(items, tx)`:
+      - Process the items sorted by `productId` (`localeCompare`, avoids lock inversion). For each, lock the row (`SELECT id FROM products WHERE id = $id::uuid FOR UPDATE`), then read it with `tx.product.findUnique` including inventory.
+      - If the product is missing or inactive, or the quantity is not an integer from 1 to `MAX_CART_QUANTITY`, fail with 409 `CART_ITEM_UNAVAILABLE` and `Um produto não está mais disponível. Revise o carrinho.`
+      - Then run `tx.$executeRaw` with `UPDATE inventory SET quantity = quantity - q, updated_at = NOW() WHERE product_id = $id::uuid AND quantity - reserved >= q`. If it did not change exactly 1 row, fail with 409 `CART_ITEM_UNAVAILABLE` and `Estoque insuficiente. Revise as quantidades do carrinho.`
+      - Return `toCatalogProduct` of each product as read before the decrement, in the sorted order.
+    - `getProduct(identifier)`:
+      - Read with `include: { inventory: true, categories: { include: { category: true } } }`. If `identifier` matches `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, try `findUnique` by `id` first. Fall back to `findUnique` by `slug`, so a UUID-shaped slug still works. If neither finds a product, return `null`.
+      - `categories`: its categories sorted by slug, as `{ slug, name }`. `categoryPath`: the longest root-first chain (recursive walk up `parent_id`, `{ slug, name }` only) among them; the first wins a tie, `[]` without categories.
+      - Return `{ ...toCatalogProduct(product), categories, categoryPath }`, inactive products included.
+    - `findBySlug(slug)`: `findUnique({ where: { slug }, include: { inventory: true } })` through `toCatalogProduct`, or `null`.
+    - `findByIds(ids)`: `[]` without a query for no ids. Otherwise `findMany({ where: { id: { in: ids } }, include: { inventory: true } })` through `toCatalogProduct`, inactive products included, in no guaranteed order.
+
+api.lists.lists.controller.ListsController:
+  description: |
+    HTTP routes for the signed-in user's lists and their items, delegating to `LISTS_API` with `auth.userId`.
+    The service answers 404 for another user's list.
+    - `list` (`GET /lists`): `lists.getLists(auth.userId)`. The default list, `Lista de desejos`, is created on first use.
+    - `create` (`POST /lists`, 201): `lists.createList(auth.userId, dto.name)`. The DTO has already trimmed the name.
+    - `get` (`GET /lists/:listId`): `lists.getList(auth.userId, params.listId)`.
+    - `rename` (`PATCH /lists/:listId`): `lists.renameList(auth.userId, params.listId, dto.name)`.
+    - `remove` (`DELETE /lists/:listId`, 204): `await lists.deleteList(auth.userId, params.listId)` and return nothing, so the body is empty.
+    - `addItem` (`POST /lists/:listId/items`, 200): `lists.addItem(auth.userId, params.listId, dto.productId)` → list details.
+    - `removeItem` (`DELETE /lists/:listId/items/:productId`): `lists.removeItem(auth.userId, params.listId, params.productId)` → list details.
+
+api.lists.lists.service.ListsService:
+  description: |
+    Named product lists per user (`prisma.list` and `prisma.listItem`), with a default list created on first use; product data comes from `CATALOG_API`.
+    Models:
+    - `List { id, userId, name, isDefault, createdAt, items }`.
+    - `ListItem { id, listId, productId, createdAt }`, unique on `listId_productId`.
+    Every query filters by `userId`, so another user's list always gives `ApiError.notFound('List')` (404 `List not found`).
+
+    Folded helpers:
+    - `withLock(userId, work)`: `prisma.$transaction(async (tx) => ...)`. It first runs `tx.$queryRaw` with the template `SELECT pg_advisory_xact_lock(hashtext(${key}))::text`, where `key` is `lists:${userId}`, then returns `work(tx)`.
+    - `ensureDefault(userId, tx)`: if the user has no list with `isDefault: true`, create `{ userId, name: DEFAULT_LIST_NAME, isDefault: true }`.
+    - `summary(list)`, for a list read with `include: withCount`: `{ id, name, isDefault, itemCount: list._count.items, createdAt }`, with `createdAt` as an ISO string.
+    - Limit errors are `new ApiError(ErrorCode.LIST_LIMIT_EXCEEDED, message, HttpStatus.CONFLICT)`.
+
+    - `getLists(userId)`:
+      - Read with `findMany({ where: { userId }, include: withCount, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }] })`.
+      - If no list is the default, run `ensureDefault` under `withLock` and read again. Concurrent first calls still create exactly one default list.
+      - Return the summaries, default first.
+    - `createList(userId, name)`:
+      - Under `withLock`, run `ensureDefault` first.
+      - If the user already has `MAX_LISTS_PER_USER` lists, fail with the limit error `Você pode ter no máximo ${MAX_LISTS_PER_USER} listas.`
+      - Otherwise create `{ userId, name }`, which is not a default list, and return its summary.
+    - `getList(userId, listId)`:
+      - `findFirst({ where: { id: listId, userId }, include: { items: { orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] } } })`. If there is no list, 404.
+      - Fetch `catalog.findByIds` for the items' product ids. Keep only the items whose product was found, as `{ productId, addedAt: item.createdAt.toISOString(), product }`, newest first.
+      - Return `{ id, name, isDefault, itemCount: items.length, createdAt, items }`.
+    - `renameList(userId, listId, name)`: `updateMany({ where: { id: listId, userId }, data: { name } })`. If the count is 0, 404. Otherwise return the summary of the list read again. The default list may be renamed.
+    - `deleteList(userId, listId)`: under `withLock`, find `{ id: listId, userId }`. If there is none, 404. If it is the default list, fail with 409 `ErrorCode.LIST_DEFAULT_PROTECTED` and `A lista padrão não pode ser excluída.` Otherwise delete it.
+    - `addItem(userId, listId, productId)`:
+      - First, outside the lock, call `catalog.findByIds([productId])`. If it returns nothing, throw `ApiError.notFound('Product')`.
+      - Under `withLock`, find the list with `withCount`; if there is none, 404.
+      - If the item already exists (`listId_productId`), do nothing, so the call is idempotent.
+      - If `_count.items >= MAX_ITEMS_PER_LIST`, fail with the limit error `Uma lista pode ter no máximo ${MAX_ITEMS_PER_LIST} itens.` Otherwise create the item.
+      - Then return `getList(userId, listId)`.
+    - `removeItem(userId, listId, productId)`:
+      - The list must exist for the user, otherwise 404.
+      - Run `listItem.deleteMany({ where: { listId, productId } })`; an item that is not on the list is fine.
+      - Return `getList`.
+
+api.users.addresses.controller.AddressesController:
+  description: |
+    HTTP routes for the signed-in user's saved delivery addresses, delegating to `USER_ADDRESSES_API` with `auth.userId`.
+    The repository answers 404 for another user's address id, and `AddressParamsDto` rejects an id that is not a UUID with 400.
+    - `list` (`GET /addresses`): `users.listAddresses(auth.userId)`, with the default address first, then oldest first.
+    - `create` (`POST /addresses`, 201): `users.saveAddress(auth.userId, dto)` → the new `AccountAddress`.
+    - `update` (`PUT /addresses/:addressId`): `users.saveAddress(auth.userId, dto, params.addressId)` → the updated address.
+    - `remove` (`DELETE /addresses/:addressId`, 200): `users.deleteAddress(auth.userId, params.addressId)` → the remaining addresses.
+    - `setDefault` (`POST /addresses/:addressId/default`, 200): `users.setDefaultAddress(auth.userId, params.addressId)` → every address.
+
+api.users.payment-cards.controller.PaymentCardsController:
+  description: |
+    HTTP routes for the signed-in user's simulated saved cards, delegating to `USER_PAYMENT_CARDS_API` with `auth.userId`.
+    The card number and CVV never reach a handler: the DTO whitelist rejects them with 400.
+    - `list` (`GET /payment-cards`): `cards.listCards(auth.userId)`, oldest first.
+    - `create` (`POST /payment-cards`, 201): `cards.addCard(auth.userId, dto)` → the saved card.
+    - `remove` (`DELETE /payment-cards/:cardId`, 200): `cards.deleteCard(auth.userId, params.cardId)` → the remaining cards, `[]` when none are left.
+
+api.users.payment-cards.repository.PaymentCardsRepository:
+  description: |
+    Stores each user's simulated saved cards (`prisma.paymentCard`: brand, last four digits, holder, expiry), at most `MAX_SAVED_CARDS` per user.
+    Folded helper `publicCard(row)`: returns exactly `{ id, brand, last4, holderName, expMonth, expYear }`. If `brand` is not in `CARD_BRANDS`, it throws a plain `Error` with `Unknown card brand stored: ${brand}`.
+
+    - `listCards(userId)`: `findMany({ where: { userId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })`, mapped with `publicCard`.
+    - `addCard(userId, input)`:
+      - If `isCardExpired(input)`, throw `new ApiError(ErrorCode.PAYMENT_INVALID, 'Cartão vencido.', HttpStatus.BAD_REQUEST)`.
+      - Then, in `prisma.$transaction(async (tx) => ...)`, first run `tx.$queryRaw` with the template `SELECT pg_advisory_xact_lock(hashtext(${key}))::text`, where `key` is `payment-cards:${userId}`.
+      - If the user already has `MAX_SAVED_CARDS` cards, throw `new ApiError(ErrorCode.CARD_LIMIT_EXCEEDED, message, HttpStatus.CONFLICT)` with the message `Você pode salvar no máximo ${MAX_SAVED_CARDS} cartões.`
+      - Otherwise create `{ ...input, userId }` and return it through `publicCard`.
+    - `deleteCard(userId, id)`: `deleteMany({ where: { id, userId } })`. If the count is 0, throw `ApiError.notFound('Payment card')` (404). Otherwise return `listCards(userId)`.
+    - `findCard(userId, id, tx = this.prisma)`: `tx.paymentCard.findFirst({ where: { id, userId } })`, through `publicCard`, or `null`. It does not check expiry; checkout does.
+
+api.users.users.api.normalizeEmail:
+  description: |
+    The canonical form in which e-mail addresses are stored and compared: trim the surrounding whitespace and lowercase; nothing else changes.
+  examples:
+    - "normalizeEmail('  Ada@Example.COM ') == 'ada@example.com'"
+
+api.users.users.repository.UsersRepository:
+  description: |
+    Users and their saved delivery addresses, stored with Prisma (`prisma.user`, `prisma.address`); implements `UsersApi` and `UserAddressesApi`.
+
+    Users:
+    - E-mails always go through `normalizeEmail`.
+    - Select `publicFields` so `passwordHash` never leaks. Add `passwordHash: true` only in the `...WithSecret` methods.
+    - `create(input)`: `user.create({ data: { ...input, email: normalizeEmail(input.email) }, select: publicFields })`.
+    - `findById(id)` and `findByIdWithSecret(id)`: `findUnique` by `id`, null when absent.
+    - `findByEmailWithSecret(email)`: `findUnique` by the normalized `email`, including `passwordHash`.
+    - `existsByEmail(email)`: whether `findUnique({ where: { email: normalizeEmail(email) }, select: { id: true } })` is not null.
+    - `updateDisplayName(id, displayName)`: `update`, returning the public fields.
+    - `updatePasswordHash(id, passwordHash)`: `update` with `select: { id: true }`; returns nothing.
+    - `updateEmail(id, email)`: `update` with the normalized e-mail, returning the public fields. Let Prisma's unique violation (`P2002`) propagate.
+
+    Addresses. Address row: `{ id, userId, recipient, postalCode, street, number, complement, neighborhood, city, state, phone, deliveryInstructions, isDefault, createdAt }`. `complement`, `phone` and `deliveryInstructions` may be null.
+    Folded helpers:
+    - `publicAddress(row)`: `{ id, recipient, postalCode, street, number, complement, neighborhood, city, state, phone, deliveryInstructions, isDefault }`. The `complement`, `phone` and `deliveryInstructions` keys are present only when the value is non-empty, so null or `''` omits the key. There is no `userId` and no timestamp.
+    - `addressesOf(userId, tx)`: `findMany({ where: { userId }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }] })`, mapped with `publicAddress`.
+    - `withAddressLock(userId, work)`: a `prisma.$transaction` that first runs `tx.$queryRaw` with the template `SELECT pg_advisory_xact_lock(hashtext(${key}))::text`, where `key` is `addresses:${userId}`. This keeps at most one default address per user.
+
+    Methods:
+    - `listAddresses(userId)`: `addressesOf(userId, this.prisma)`.
+    - `findAddress(userId, id, tx = this.prisma)`: `tx.address.findFirst({ where: { id, userId } })`, through `publicAddress`, or `null`.
+    - `saveAddress(userId, input, id?)`:
+      - Without `id`, under the lock: create `{ ...input, userId, isDefault }`, where `isDefault` is true only when the user has no default address yet.
+      - With `id`: `prisma.address.updateMany({ where: { id, userId }, data: input })`. If the count is 0, throw `ApiError.notFound('Address')` (404). Otherwise return the row read again.
+      - Fields that are `undefined` in `input` keep their stored value. `''` is stored as empty, so the key is omitted in the response.
+    - `deleteAddress(userId, id)`:
+      - Under the lock, find `{ id, userId }`; if there is none, 404.
+      - Delete it. If it was the default, make the oldest remaining address (`createdAt`, then `id`, ascending) the default.
+      - Return `addressesOf(userId, tx)`.
+    - `setDefaultAddress(userId, id)`:
+      - Under the lock: if the user has no address with that `id`, 404.
+      - Clear `isDefault` on the user's other default addresses, then set it on this one.
+      - Return `addressesOf(userId, tx)`.

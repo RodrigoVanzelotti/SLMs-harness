@@ -1,0 +1,8 @@
+{
+  "sf.features.corporate.corporate-content.getCorporatePage": [
+    "apps/storefront/test/corporate-content.getCorporatePage.new.spec.ts"
+  ],
+  "sf.features.corporate.corporate-routes.CORPORATE_ROUTES": [
+    "apps/storefront/test/corporate-routes.CORPORATE_ROUTES.new.spec.ts"
+  ]
+}

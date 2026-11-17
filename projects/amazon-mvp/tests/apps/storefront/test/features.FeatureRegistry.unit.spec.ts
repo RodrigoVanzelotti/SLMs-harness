@@ -1,0 +1,179 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { FeatureRegistry, readYamlFile } from '@amazon-mvp/config-schema';
+import { parse } from 'yaml';
+import { describe, expect, it } from 'vitest';
+
+const REPO_FEATURES = join(process.cwd(), '..', '..', 'config', 'features.yaml');
+
+const loadShipped = () => FeatureRegistry.fromConfig(readYamlFile(REPO_FEATURES));
+
+describe('shipped config/features.yaml', () => {
+  it('is valid and fails fast if it is not', () => {
+    expect(() => loadShipped()).not.toThrow();
+  });
+
+  it('keeps the authentication vertical slice enabled', () => {
+    const registry = loadShipped();
+    expect(registry.isEnabled('authentication')).toBe(true);
+    expect(registry.isEnabled('home')).toBe(true);
+  });
+
+  it('enables order history ("Seus pedidos")', () => {
+    const registry = loadShipped();
+    expect(registry.routeState('orders')).toBe('enabled');
+    expect(registry.routeState('orderDetails')).toBe('enabled');
+  });
+
+  it('enables writing reviews now that the reviews API exists', () => {
+    const registry = loadShipped();
+    expect(registry.isEnabled('productReviews')).toBe(true);
+    expect(registry.routeState('productReviews')).toBe('enabled');
+  });
+
+  it('enables the product page, cart, checkout and browsing history', () => {
+    const registry = loadShipped();
+    for (const feature of ['productDetails', 'cart', 'checkout', 'browsingHistory']) {
+      expect(registry.isEnabled(feature)).toBe(true);
+    }
+    expect(registry.routeState('productDetails')).toBe('enabled');
+    expect(registry.routeState('cart')).toBe('enabled');
+  });
+
+  it('enables the footer help and payment pages', () => {
+    const registry = loadShipped();
+    for (const key of [
+      'paymentMethods',
+      'points',
+      'creditCard',
+      'shipping',
+      'returns',
+      'contentAndDevices',
+      'recalls',
+    ]) {
+      expect(registry.isEnabled(key)).toBe(true);
+      expect(registry.routeState(key)).toBe('enabled');
+    }
+  });
+
+  it('enables the product listing (search, category and brand pages)', () => {
+    const registry = loadShipped();
+    expect(registry.isEnabled('catalog')).toBe(true);
+    expect(registry.routeState('products')).toBe('enabled');
+  });
+
+  it('enables the account area destinations ("Sua conta")', () => {
+    const registry = loadShipped();
+    for (const feature of [
+      'account',
+      'security',
+      'addresses',
+      'lists',
+      'giftCards',
+      'refunds',
+      'messages',
+      'prime',
+      'subscriptions',
+      'subscribeAndSave',
+    ]) {
+      expect(registry.isEnabled(feature)).toBe(true);
+      expect(registry.routeState(feature)).toBe('enabled');
+    }
+  });
+
+  it('binds every route in the storefront to a declared feature', () => {
+    const registry = loadShipped();
+    const routeKeys = [
+      'home',
+      'login',
+      'register',
+      'products',
+      'productDetails',
+      'cart',
+      'checkout',
+      'orders',
+      'orderDetails',
+      'account',
+    ];
+    for (const key of routeKeys) {
+      expect(['enabled', 'coming-soon', 'not-found']).toContain(registry.routeState(key));
+    }
+  });
+
+  it('resolves the shipped routes to their documented behaviour', () => {
+    const registry = loadShipped();
+    expect(registry.routeState('login')).toBe('enabled'); // feature enabled
+    expect(registry.routeState('account')).toBe('enabled');
+    expect(registry.routeState('checkout')).toBe('enabled');
+  });
+});
+
+describe('feature registry behaviour', () => {
+  const config = (overrides: string) => FeatureRegistry.fromConfig(parse(overrides));
+
+  it('renders an enabled feature', () => {
+    const registry = config(`
+features:
+  catalog:
+    enabled: true
+routes:
+  products:
+    feature: catalog
+    disabledBehavior: coming-soon
+`);
+    expect(registry.routeState('products')).toBe('enabled');
+  });
+
+  it('falls back to Coming Soon when the feature is off', () => {
+    const registry = config(`
+features:
+  catalog:
+    enabled: false
+routes:
+  products:
+    feature: catalog
+    disabledBehavior: coming-soon
+`);
+    expect(registry.routeState('products')).toBe('coming-soon');
+  });
+
+  it('returns not-found when configured that way', () => {
+    const registry = config(`
+features:
+  checkout:
+    enabled: false
+routes:
+  checkout:
+    feature: checkout
+    disabledBehavior: not-found
+`);
+    expect(registry.routeState('checkout')).toBe('not-found');
+  });
+
+  it('rejects an invalid disabledBehavior instead of guessing', () => {
+    expect(() =>
+      config(`
+features:
+  cart:
+    enabled: false
+routes:
+  cart:
+    feature: cart
+    disabledBehavior: maybe
+`),
+    ).toThrow();
+  });
+
+  it('rejects a route bound to a feature that does not exist', () => {
+    expect(() =>
+      config(`
+features:
+  cart:
+    enabled: false
+routes:
+  cart:
+    feature: basket
+`),
+    ).toThrow(/unknown feature/);
+  });
+});

@@ -1,0 +1,509 @@
+# Behavior text for apps/storefront/src/features/{orders,help,home}. Group: sf-orders-help-home.
+
+# ---------------------------------------------------------------- help/help-center.tsx
+
+sf.features.help.help-center.CustomerServiceBar:
+  description: |
+    Render the "amazon customer service" navigation bar of the help area, marking the `CS_NAV` link whose href is `currentHref` as the current page.
+
+    Markup, in order:
+    - `<nav className="az-cs-bar" aria-label="Atendimento ao Cliente">`.
+    - `<Link href="/help" className="az-cs-bar__logo" aria-label="amazon customer service">` holding the wordmark as HTML text (not one SVG):
+      `<span className="az-cs-bar__brand" aria-hidden="true">` containing `<span className="az-cs-bar__amazon">amazon<svg viewBox="0 0 44 10" width="44" height="10">…</svg></span>`
+      (a small white smile arrow: a curved stroke `stroke="#fff"` plus a white arrow head) followed by a space and the text `customer service`.
+    - `<span className="az-cs-bar__divider" aria-hidden="true" />`.
+    - `<ul className="az-cs-bar__links">` with one `<li key={link.href}>` per `CS_NAV` entry, in order, each holding
+      `<Link href={link.href} className="az-cs-bar__link">{link.label}</Link>`.
+      Give that link `aria-current="page"` when `link.href === currentHref`; otherwise pass `undefined` so the attribute is absent.
+
+    With `currentHref="/help"`, "Página inicial" has `aria-current="page"` and "Suporte para dispositivos e serviços digitais" has no `aria-current`.
+    Server component: no hooks.
+
+sf.features.help.help-center.HelpCenter:
+  description: |
+    Render the "Atendimento ao Cliente" page body: a hero greeting with the user's recent products (when any), help shortcuts and quick links, then `<HelpTopics />`.
+
+    Markup, in order:
+    - `<main className="az-help">` > `<section className="az-help__hero" aria-labelledby="az-help-title">` > `<div className="az-help__inner">`.
+    - When `products` is not empty:
+      - `<h1 id="az-help-title" className="az-help__title">` reading `Você precisa de ajuda com um produto recente, {firstName}?`.
+        Without `firstName` the `, {firstName}` part is dropped: `Você precisa de ajuda com um produto recente?`.
+      - `<p className="az-help__subtitle">Selecione abaixo o produto com o qual você precisa de ajuda ou obtenha ajuda com outra coisa.</p>`
+      - `<ul className="az-help__products" aria-label="Produtos recentes">`, one `<li key={product.key}>` per product in the given order, holding
+        `<Link href={product.href} className="az-help__product">` with
+        `<span className="az-help__product-media"><ProductImage image={product.image} /></span>` and
+        `<span className="az-help__product-text">` containing `<span className="az-help__product-name">{product.name}</span>` and
+        `<span className="az-help__product-date">Pedido em {formatOrderDate(product.orderedAt)}</span>` (e.g. `Pedido em 10 de ago. de 2026`).
+    - When `products` is empty (signed out, or no orders): no product list and no placeholders.
+      - `<h1 id="az-help-title" className="az-help__title">` reading `Bem-vindo ao Atendimento ao Cliente da Amazon, {firstName}`
+        (no question mark; without `firstName`: `Bem-vindo ao Atendimento ao Cliente da Amazon`).
+      - `<p className="az-help__subtitle">Como podemos ajudar? Escolha uma opção abaixo ou pesquise na biblioteca de ajuda.</p>`
+    - Always, still inside `az-help__inner`:
+      - `<div className="az-help__actions">` with `<Link key={action.label} href={action.href} className="az-help__action">{action.label}</Link>` per `HERO_ACTIONS` entry.
+      - `<div className="az-help__quick">` containing, in order:
+        - `<div className="az-help__quick-intro">` with `<p className="az-help__quick-heading">Tem dúvidas sobre suas compras?</p>` and
+          `<Link href="/orders" className="az-help__quick-all">Revisar tudo <span aria-hidden="true">→</span></Link>`.
+        - `<ul className="az-help__quick-links">` with one `<li key={link.title}>` per `QUICK_LINKS` entry holding
+          `<Link href={link.href} className="az-help__quick-link">` with `<span className="az-help__quick-title">{link.title}</span>` and `<span className="az-help__quick-body">{link.body}</span>`.
+        - A decorative `<span className="az-help__quick-art" aria-hidden="true">` with an 80×80 SVG of stacked parcels on a blue square.
+    - After the `</section>`, still inside `<main>`: `<HelpTopics />`.
+
+    Tests compare the `<h1>` `textContent` exactly. Server component: no hooks. `formatOrderDate` comes from `./recent-products`.
+
+# ---------------------------------------------------------------- help/help-topics.tsx
+
+sf.features.help.help-topics.searchHelpTopics:
+  description: |
+    Return the help cards whose title and body contain every word of `query`, ignoring case and accents; each card at most once, in `HELP_CATEGORIES` order.
+    - Candidates: all cards of all categories in `HELP_CATEGORIES`, flattened in order and de-duplicated by `title`
+      (a card listed under several categories appears once, at its first position). There are 26 distinct cards. Build this list once, at module level.
+    - normalize(text) = `text.normalize('NFD')`, remove the combining marks U+0300–U+036F, then `toLowerCase()`.
+    - Terms: `normalize(query)` split on `/\s+/`, empty parts dropped.
+    - A card matches when `normalize(`${card.title} ${card.body}`)` includes every term (substring match).
+    - A blank query has no terms, so every card matches.
+  examples:
+    - 'searchHelpTopics("REEMBOLSO").map((c) => c.title) == ["Verificar o status do seu reembolso"]'
+    - 'searchHelpTopics("devolucao").map((c) => c.title) == ["Devolver itens que você comprou", "Verificar o status do seu reembolso"]'
+    - 'searchHelpTopics("pix pagamento").map((c) => c.title) == ["Meios de pagamento aceitos"]'
+
+sf.features.help.help-topics.HelpTopics:
+  description: |
+    Client component for the help library: a search box over all help cards and, while it is empty, the "Todos os tópicos de ajuda" vertical tabs (one per category).
+
+    State: `query` (starts `''`) and `activeId` (starts `HELP_CATEGORIES[0].id`). `const baseId = useId()` prefixes the ids below.
+    `searching` is `query.trim().length > 0`; `results = searchHelpTopics(query)` when searching. The active category is the one whose id is `activeId` (fallback: the first).
+
+    Markup, in order:
+    - `<section className="az-help__library" aria-label="Biblioteca de ajuda">` > `<div className="az-help__inner">`.
+    - `<h2 className="az-help__section-title">Pesquisar na nossa biblioteca de ajuda</h2>`.
+    - `<form className="az-help__search" role="search">`; its submit handler only calls `event.preventDefault()`. Inside, in order:
+      a decorative 16×16 magnifier SVG with `aria-hidden="true"`,
+      `<label htmlFor={`${baseId}-q`} className="visually-hidden">Pesquisar na nossa biblioteca de ajuda</label>`, and
+      `<input id={`${baseId}-q`} type="search" value={query} placeholder="Digite algo como “pergunta sobre uma cobrança”" autoComplete="off" />`; typing sets `query`.
+    - While searching: `<div className="az-help__results" aria-live="polite">` with
+      `<h2 className="az-help__section-title">` reading `Resultados para “{query.trim()}”` when there are results, else `Nenhum resultado para “{query.trim()}”` (curly quotes “ ”);
+      then the card grid of `results`, or `<p className="az-help__empty">Tente outras palavras ou navegue pelos tópicos de ajuda.</p>`.
+      No tablist or tabpanel is rendered while searching.
+    - Otherwise: `<div id="az-help-topics" className="az-help__topics">` (target of the `#az-help-topics` hero link) with
+      `<h2 className="az-help__section-title">Todos os tópicos de ajuda</h2>` and `<div className="az-help__topics-layout">` containing:
+      - `<div className="az-help__tabs" role="tablist" aria-orientation="vertical">` with, per category in order, a
+        `<button type="button" role="tab" id={`${baseId}-tab-${category.id}`} aria-controls={`${baseId}-panel`} className="az-help__tab">{category.label}</button>`;
+        `aria-selected` is true only for the active category, `tabIndex` is 0 for it and -1 for the others.
+        Click makes it active. On `keydown`, `ArrowDown`/`ArrowUp` call `preventDefault()`, activate the next/previous category (wrapping around the ends)
+        and focus its tab via `document.getElementById(`${baseId}-tab-${next.id}`)?.focus()`; other keys do nothing.
+      - `<div id={`${baseId}-panel`} role="tabpanel" aria-labelledby={`${baseId}-tab-${active.id}`}>` holding the card grid of `active.cards`.
+    - Card grid (a private helper is fine): `<ul className="az-help__cards">` with one `<li key={card.title}>` per card holding
+      `<Link href={card.href} className="az-help__card">` with `<span className="az-help__card-title">{card.title}</span>` and `<span className="az-help__card-body">{card.body}</span>`.
+
+    Initially the panel shows the 11 links of "Tópicos recomendados". Clicking "Devoluções e Reembolsos" selects it and shows its cards
+    "Devolver itens que você comprou", "Verificar o status do seu reembolso", "Cancelar itens ou pedidos".
+
+# ---------------------------------------------------------------- help/recent-products.ts
+
+sf.features.help.recent-products.recentProductsFromOrders:
+  description: |
+    Turn the user's orders into at most six recent-product cards: each product once, from its newest order, newest order first.
+    Take `distinctOrderedProducts(orders)`, keep the first `GRID_SIZE` (6), and map each `{ line, order }` to
+    `{ key: line.productId, name: line.productName, orderedAt: order.placedAt, href: `/orders/${order.id}`, image: photoForSku(line.sku) }`.
+    The order id is not URI-encoded here. `image` is `undefined` when the SKU has no demo photo. No orders gives `[]`.
+  examples:
+    - 'recentProductsFromOrders([]) == []'
+    - 'recentProductsFromOrders([{ id: "o1", placedAt: "2026-01-01T12:00:00Z", lines: [{ productId: "k", productName: "Kindle", sku: "DEMO-p3" }] }])[0] == { key: "k", name: "Kindle", orderedAt: "2026-01-01T12:00:00Z", href: "/orders/o1", image: { src: "/images/products/kindle.jpg", alt: "Kindle preto" } }'
+
+sf.features.help.recent-products.getRecentProducts:
+  description: |
+    Load the recent products for the help page: `[]` for signed-out visitors (no request), otherwise built from the user's orders.
+    When `signedIn` is false return `[]` without calling the API. Otherwise `await fetchOrders()` and pass the result to `recentProductsFromOrders`;
+    when the API is unavailable (`fetchOrders()` resolves `null`) use `[]`, so the page renders without the product grid.
+
+# ---------------------------------------------------------------- home/catalog-mock.ts
+
+sf.features.home.catalog-mock.formatBRL:
+  description: |
+    Format an amount in reais (not centavos) as Brazilian currency, e.g. `R$ 279,00`.
+    Use `new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)`; do not divide by 100.
+    The space after `R$` is the non-breaking space U+00A0 that Intl produces.
+  examples:
+    - 'formatBRL(279) == "R$ 279,00"'
+    - 'formatBRL(1234.5) == "R$ 1.234,50"'
+
+sf.features.home.catalog-mock.discountPercent:
+  description: |
+    Whole-percent discount of a home product from `oldPrice` to `price`, or `undefined` when it has no (or a zero) `oldPrice`.
+    `Math.round((1 - product.price / product.oldPrice) * 100)`.
+  examples:
+    - 'discountPercent({ ...product, price: 279, oldPrice: 349 }) == 20'
+    - 'discountPercent({ ...product, price: 100, oldPrice: undefined }) == undefined'
+
+sf.features.home.catalog-mock.PRODUCTS:
+  description: |
+    Home page product fixtures: one entry per product family of `demoProducts`, with prices converted from centavos to reais.
+    `demoProducts` (config/demo-products.json) is an array of objects with `id` (a slug such as `"p1"`), `name`, `rating`, `reviewCount`,
+    `image` (`{ src, alt }`), `glyph` (a `GlyphKind` name), `sku`, `priceMinor`, an optional `oldPriceMinor`, `inventoryQuantity`,
+    and, only on colour/size siblings, `variantOf` (the id of the main product).
+    - Drop every entry that has a `variantOf` key (`!('variantOf' in product)`); keep the JSON order.
+    - Map each to `{ id, name, rating, reviewCount, image, glyph: glyph as GlyphKind, price: priceMinor / 100 }`, adding
+      `oldPrice: oldPriceMinor / 100` only when `oldPriceMinor` is truthy (otherwise the key is absent). Copy nothing else.
+    The result has 105 products. `PRODUCTS[0]` is `p1` with `price` 279 and `oldPrice` 349; `p6` has no `oldPrice`; `PRODUCTS[8]` is `p9`.
+    Other declarations index into this array, so nothing may sort it in place.
+
+sf.features.home.catalog-mock.varied:
+  description: |
+    Pick at most `RAIL_SIZE` (10) products for a home rail, one product per `glyph` before any glyph repeats, leaving out `exclude`.
+    1. `pool` = `candidates` without the products in `exclude` (object identity: `exclude.includes(product)`), keeping order.
+    2. `first` = the first product of each glyph in `pool`, in pool order.
+    3. Return `first` followed by the remaining pool products in pool order, cut to the first `RAIL_SIZE`.
+    For glyphs `echo, echo, tv` the result is the first echo, the tv, then the second echo. Does not mutate its inputs; returns the same objects.
+
+sf.features.home.catalog-mock.DEALS_OF_THE_DAY:
+  description: |
+    The "Ofertas do dia" rail: discounted products, biggest discount first, varied by glyph.
+    `varied(PRODUCTS.filter((p) => p.oldPrice).sort((a, b) => discountPercent(b)! - discountPercent(a)!))`.
+    Filter before sorting so `PRODUCTS` is not reordered; equal discounts keep catalog order (stable sort).
+    Resulting ids: `p8, p17, p4, p20, p12, p16, p5, p10, p3, p14`.
+
+sf.features.home.catalog-mock.BEST_SELLERS:
+  description: |
+    The "Mais vendidos" rail: products with the most reviews first, varied by glyph.
+    `varied([...PRODUCTS].sort((a, b) => b.reviewCount - a.reviewCount))`: sort a copy, never `PRODUCTS` itself.
+    Resulting ids: `p1, p66, p72, p117, p4, p54, p45, p126, p65, p13`.
+
+sf.features.home.catalog-mock.RECOMMENDED:
+  description: |
+    The "Recomendados para você" rail: best-rated products (rating ≥ 4.6) that are not best sellers, varied by glyph.
+    `varied(PRODUCTS.filter((p) => p.rating >= 4.6).sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount), BEST_SELLERS)`:
+    rating descending, then review count descending; products already in `BEST_SELLERS` are excluded.
+    Resulting ids: `p3, p33, p128, p6, p127, p94, p80, p62, p92, p141`.
+    Every rail has 8 to 10 products, no repeated id or glyph, and holds the same objects as `PRODUCTS`.
+
+sf.features.home.catalog-mock.CATEGORIES:
+  description: |
+    The nine "Compre por categoria" tiles, each with a catalog category slug, a name, a glyph and the photo of a representative product.
+    In this order (`id`, `category`, `name`, `glyph`, `image`):
+    - `c1`, `eletronicos`, `Eletrônicos`, `headphones`, `PRODUCTS[1].image`
+    - `c2`, `computadores`, `Computadores`, `laptop`, `PRODUCTS[8].image`
+    - `c3`, `cozinha`, `Casa e Cozinha`, `airfryer`, `PRODUCTS[3].image`
+    - `c4`, `livros`, `Livros`, `book`, `PRODUCTS[12].image`
+    - `c5`, `beleza`, `Beleza`, `beauty`, `PRODUCTS[7].image`
+    - `c6`, `moda`, `Moda`, `sneaker`, `PRODUCTS[4].image`
+    - `c7`, `games-e-consoles`, `Games`, `controller`, `PRODUCTS[5].image`
+    - `c8`, no `category` key (the tile opens all products), `Ofertas`, `watch`, `PRODUCTS[9].image`
+    - `c9`, `esportes`, `Esportes`, `fitness`, `PRODUCTS.find((p) => p.glyph === 'fitness')?.image`
+
+sf.features.home.catalog-mock.HOME_COLLECTIONS:
+  description: |
+    Four curated home collections, each holding the first four `PRODUCTS` (catalog order) that match its rule.
+    - `{ id: 'home', title: 'Mais para sua casa' }`: glyph is one of `airfryer`, `plant`, `lamp`, `blender`.
+    - `{ id: 'under-150', title: 'Bem avaliados até R$ 150' }`: `price <= 150 && rating >= 4.5` (plain space in the title).
+    - `{ id: 'technology', title: 'Tecnologia no seu dia a dia' }`: glyph is one of `echo`, `headphones`, `ereader`, `laptop`.
+    - `{ id: 'everyday', title: 'Escolhas para sua rotina' }`: glyph is one of `sneaker`, `beauty`, `watch`, `backpack`.
+    Products are the `PRODUCTS` objects themselves. Resulting ids: home `p4, p7, p14, p16`; under-150 `p8, p11, p13, p14`;
+    technology `p1, p2, p3, p9`; everyday `p5, p8, p10, p11`.
+
+# ---------------------------------------------------------------- home/home-catalog.ts
+
+sf.features.home.home-catalog.resolveHomeProducts:
+  description: |
+    Resolve all curated home rails to their active catalog records in one batched lookup, returning a function that maps a rail to its records.
+    - Collect the distinct product ids (catalog slugs) of every product in every rail: `[...new Set(curated.flat().map((p) => p.id))]`.
+    - Call `listBySlugs(slugs)` exactly once (never once per rail or card), keep only records with `active` true, and pass them to `withRatings(...)` once.
+    - Index the rated records by `record.slug`.
+    - Return `(products) => ...` mapping each product, in the given order, to the record whose slug is `product.id`, and leaving out products
+      without an active record (missing or inactive).
+    Cards show the catalog record (UUID `id`, database `name`, `priceMinor`), never the fixture copy: a fixture `p1` priced 279 resolves to
+    the record `{ id: 'uuid-p1', name: 'Echo Dot (nome do banco)', priceMinor: 19900, ... }` when that is what the catalog returns.
+
+# ---------------------------------------------------------------- orders/order-card.tsx
+
+sf.features.orders.order-card.productHref:
+  description: |
+    Product page path for an order item: `/products/` followed by `encodeURIComponent(productId)`.
+  examples:
+    - 'productHref("product-o1") == "/products/product-o1"'
+
+sf.features.orders.order-card.orderHref:
+  description: |
+    Order details path: `/orders/` followed by `encodeURIComponent(order.id)`.
+
+sf.features.orders.order-card.OrderCard:
+  description: |
+    Render one order as in Amazon's "Seus pedidos": a grey header with the order facts and links, followed by `<OrderShipment order={order} />`.
+
+    Markup, in order:
+    - `<article className="az-order" aria-label={`Pedido nº ${order.orderNumber}`}>` (`º` is U+00BA).
+    - `<header className="az-order__header">` containing:
+      - `<dl className="az-order__facts">` with one `<div>` per fact:
+        `<dt>Pedido realizado</dt><dd>{formatLongDate(order.placedAt)}</dd>`;
+        `<dt>Total</dt><dd>{formatCartMoney(order.totalMinor, order.currency)}</dd>`;
+        and only when `order.shippingAddress` is not null, `<dt>Enviar para</dt>` with a `<dd>` holding
+        `<details className="az-order__popover">`: `<summary>{recipient}<Chevron /></summary>` and
+        `<address className="az-order__popover-body">` showing `<strong>{recipient}</strong><br />{street}, {number}`,
+        then `, {complement}` only when `complement` is set, then `<br />{neighborhood}, {city} — {state}<br />{postalCode}`.
+      - `<div className="az-order__id">` with `<p>Pedido nº {order.orderNumber}</p>` and `<div className="az-order__links">` holding
+        `<Link href={orderHref(order)}>Exibir detalhes do pedido</Link>`, `<span className="az-order__sep" aria-hidden="true" />`, and
+        `<details className="az-order__popover az-order__popover--end">` with `<summary>Fatura<Chevron /></summary>` and
+        `<div className="az-order__popover-body"><Link href={`${orderHref(order)}#resumo`}>Resumo do pedido</Link></div>`.
+    - `<OrderShipment order={order} />`, still inside the article.
+
+    Chevron (a private helper): `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" className="az-order__chevron">`
+    with `<path d="m3.5 6 4.5 4.5L12.5 6" fill="none" stroke="currentColor" strokeWidth="2" />`.
+
+sf.features.orders.order-card.OrderShipment:
+  description: |
+    Render an order's delivery status, its items with per-item actions, and the order actions; reused by the order details page.
+    Compute `status = deliveryStatus(order)` and `returns = returnWindow(order)` (current time).
+
+    Markup, in order:
+    - `<div className="az-order__body">` > `<div className="az-order__shipment">` containing:
+      - `<h2 className="az-order__status">{status.headline}</h2>`, then `<p className="az-order__status-detail">{status.detail}</p>` only when `detail` is truthy.
+      - `<ul className="az-order__items">` with one `<li key={line.productId} className="az-order__item">` per `order.lines` entry:
+        - `<Link href={productHref(line.productId)} className="az-order__item-media" tabIndex={-1} aria-hidden="true"><ProductImage image={photoForSku(line.sku)} /></Link>`.
+        - `<div className="az-order__item-info">` with `<Link href={productHref(line.productId)} className="az-order__item-name">{line.productName}</Link>`;
+          `<p className="az-order__item-meta">Quantidade: {line.quantity}</p>` only when `quantity > 1`;
+          `<p className="az-order__item-meta">{returns}</p>` only when `returns` is not null;
+          and `<div className="az-order__item-actions">` with `<BuyAgainButton productId={line.productId} />` and
+          `<Link href={productHref(line.productId)} className="az-order-btn">Ver o seu item</Link>`.
+    - Then, inside `az-order__body`, `<div className="az-order__actions">` with:
+      - `<Link href="/help" className="az-order-btn az-order-btn--primary">Obter suporte de produto</Link>` (always);
+      - `<Link href={orderHref(order)} className="az-order-btn">Rastrear pacote</Link>` unless `order.status === 'CANCELLED'`;
+      - `<Link href={productHref(order.lines[0].productId)} className="az-order-btn">Avaliar o produto</Link>` only when `order.deliveredAt`
+        is set and the order has a first line.
+
+    For a delivered single-line order of `product-o1`, the card has the links "Obter suporte de produto", "Rastrear pacote", "Avaliar o produto",
+    "Ver o seu item" (`/products/product-o1`) and, for guests, "Comprar novamente".
+
+sf.features.orders.order-card.BuyAgainButton:
+  description: |
+    "Comprar novamente" control for one product: adds it to the persistent cart, or links to the product page when the visitor is a guest.
+    Uses `useCart()` and local state `clicked` (starts false).
+    Content: `<span className="az-order-btn__icon" aria-hidden="true">` with a decorative 22×22 SVG (a circular arrow around a small cart, stroke `#0f1111`),
+    followed by the text `Comprar novamente`.
+    - When `cart.status === 'guest'`: return `<Link href={productHref(productId)} className="az-order-btn az-order-btn--buy">{content}</Link>`.
+    - Otherwise return a fragment:
+      `<button type="button" className="az-order-btn az-order-btn--buy" disabled={cart.pending}>{content}</button>`, whose click sets `clicked` to true
+      and calls `void cart.add(productId)`; then, only when `clicked && !cart.pending && (cart.error || cart.notice)`,
+      `<span className="az-order__buy-status" role="status">{cart.error ?? cart.notice}</span>`.
+
+# ---------------------------------------------------------------- orders/order-presentation.ts
+
+sf.features.orders.order-presentation.dateFormat:
+  description: |
+    Create the `Intl.DateTimeFormat` for `'pt-BR'` with the given options, always in `TIME_ZONE` (`America/Sao_Paulo`).
+    Return `new Intl.DateTimeFormat('pt-BR', { ...options, timeZone: TIME_ZONE })`: the formatter itself, since callers use `.format()` and `.formatToParts()`.
+
+sf.features.orders.order-presentation.formatOrderDate:
+  description: |
+    Format an ISO timestamp as the short Brazilian date of order lists, e.g. `10 de ago. de 2026`, in São Paulo time.
+    Return `shortDate.format(new Date(iso))`.
+  examples:
+    - 'formatOrderDate("2025-05-09T12:00:00Z") == "9 de mai. de 2025"'
+    - 'formatOrderDate("2026-01-01T02:00:00Z") == "31 de dez. de 2025"'
+
+sf.features.orders.order-presentation.formatLongDate:
+  description: |
+    Format an ISO timestamp as the long Brazilian date, e.g. `10 de agosto de 2026`, in São Paulo time.
+    Return `longDate.format(new Date(iso))`.
+  examples:
+    - 'formatLongDate("2026-08-10T13:32:00Z") == "10 de agosto de 2026"'
+    - 'formatLongDate("2026-01-01T02:00:00Z") == "31 de dezembro de 2025"'
+
+sf.features.orders.order-presentation.orderYear:
+  description: |
+    Calendar year of an ISO timestamp in São Paulo time, as a number.
+    Return `Number(yearOnly.format(new Date(iso)))`.
+  examples:
+    - 'orderYear("2026-01-01T02:00:00Z") == 2025'
+    - 'orderYear("2026-01-01T03:00:00Z") == 2026'
+
+sf.features.orders.order-presentation.photoForSku:
+  description: |
+    Find the demo photo of an order item by its SKU snapshot, or `undefined` when no demo product has that SKU.
+    Return the `image` of the first entry of `demoProducts` (the whole JSON list, variants included) whose `sku` equals `sku`.
+  examples:
+    - 'photoForSku("DEMO-p3") == { src: "/images/products/kindle.jpg", alt: "Kindle preto" }'
+    - 'photoForSku("NO-MEDIA") == undefined'
+
+sf.features.orders.order-presentation.deliveryStatus:
+  description: |
+    Derive the delivery headline and detail line of an order from its persisted status, delivery date and delivery note.
+    Checked in this order:
+    1. `status === 'CANCELLED'` → `{ headline: 'Cancelado', detail: order.deliveryNote }`, even when `deliveredAt` is set.
+    2. `deliveredAt` set → `{ headline: `Entregue no dia ${dayAndMonth}`, detail: order.deliveryNote }`. `dayAndMonth` drops the "de" of pt-BR,
+       e.g. `17 agosto`: take `dayMonth.formatToParts(new Date(deliveredAt))`, keep only the parts of type `day` and `month`, and join their values with one space.
+       It is in São Paulo time: `2026-08-01T02:10:00Z` gives `31 julho`.
+    3. `status === 'FULFILLED'` → `{ headline: 'Enviado', detail: order.deliveryNote }`.
+    4. Otherwise (PENDING, PAID) → `{ headline: 'Pedido recebido', detail: order.deliveryNote ?? 'Ainda não enviado.' }`.
+    In cases 1 to 3 `detail` is the note as stored, so it may be `null`.
+  examples:
+    - 'deliveryStatus({ ...order, status: "FULFILLED", deliveredAt: "2026-08-17T15:10:00Z", deliveryNote: null }) == { headline: "Entregue no dia 17 agosto", detail: null }'
+    - 'deliveryStatus({ ...order, status: "PAID", deliveredAt: null, deliveryNote: null }) == { headline: "Pedido recebido", detail: "Ainda não enviado." }'
+
+sf.features.orders.order-presentation.isNotYetShipped:
+  description: |
+    True when the order is placed but not shipped yet (the "Ainda não enviado" tab): `status` is `PENDING` or `PAID`.
+
+sf.features.orders.order-presentation.returnWindow:
+  description: |
+    Describe the return deadline of a delivered order (one calendar month after delivery), or `null` when it is not delivered or is cancelled.
+    - Return `null` when `order.deliveredAt` is null or `order.status === 'CANCELLED'`.
+    - `end = new Date(order.deliveredAt)`, then `end.setMonth(end.getMonth() + 1)`; `date = formatLongDate(end.toISOString())`.
+    - When `end < now` return `O período de devolução se encerrou em {date}`; otherwise `Qualificado para devolução até {date}`.
+  examples:
+    - 'returnWindow({ ...order, status: "FULFILLED", deliveredAt: "2026-08-17T15:10:00Z" }, new Date("2026-09-29T12:00:00Z")) == "O período de devolução se encerrou em 17 de setembro de 2026"'
+    - 'returnWindow({ ...order, status: "FULFILLED", deliveredAt: "2026-08-17T15:10:00Z" }, new Date("2026-09-01T12:00:00Z")) == "Qualificado para devolução até 17 de setembro de 2026"'
+
+sf.features.orders.order-presentation.periodOptions:
+  description: |
+    Build the choices of the orders period filter: the two relative periods, then only the calendar years that have orders, newest first.
+    Return `{ value: 'last30', label: 'últimos 30 dias' }`, `{ value: 'months3', label: 'nos últimos 3 meses' }`, then one
+    `{ value: String(year), label: String(year) }` per distinct `orderYear(order.placedAt)` (São Paulo time), sorted descending.
+    No orders gives only the two relative options.
+  examples:
+    - 'periodOptions([]).map((o) => o.value) == ["last30", "months3"]'
+    - 'periodOptions([{ ...order, placedAt: "2026-01-01T02:00:00Z" }]).map((o) => o.value) == ["last30", "months3", "2025"]'
+
+sf.features.orders.order-presentation.ordersInPeriod:
+  description: |
+    Keep the orders placed in a period from `periodOptions`, in their original order.
+    - `'last30'`: orders with `new Date(placedAt) >= from`, where `from` is a copy of `now` moved back 30 days with `setDate(getDate() - 30)`.
+    - `'months3'`: the same with `from` moved back three months with `setMonth(getMonth() - 3)`.
+    - Any other value is a year: orders whose `String(orderYear(placedAt)) === period`; an unknown value matches nothing.
+    Relative periods have no upper bound.
+  examples:
+    - 'ordersInPeriod([{ ...order, placedAt: "2026-08-10T13:32:00Z" }], "last30", new Date("2026-09-29T12:00:00Z")) == []'
+    - 'ordersInPeriod([{ ...order, placedAt: "2026-08-10T13:32:00Z" }], "months3", new Date("2026-09-29T12:00:00Z")).length == 1'
+
+sf.features.orders.order-presentation.searchOrders:
+  description: |
+    Find orders by product name or order number, ignoring case, accents and surrounding spaces; a blank query returns `orders` unchanged.
+    - normalize(text) = `text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim()`.
+    - `term = normalize(query)`; when it is empty return `orders` (the same array).
+    - `digits`: when `term` matches `/^[\d\s-]+$/`, `term` with every non-digit removed; otherwise `''`.
+    - Keep an order when some line's normalized `productName` includes `term`, or its normalized `orderNumber` includes `term`,
+      or `digits` is not empty and `orderNumber` with its non-digits removed includes `digits`. Keep the input order.
+    So `702-0000002-1234567` and `70200000021234567` both find order number `702-0000002-1234567`, and `eletrica` finds "Air Fryer Elétrica".
+
+sf.features.orders.order-presentation.orderCountLabel:
+  description: |
+    Order counter label split so the count can be bold: `{ count: '1 pedido', verb: 'feito em' }` for exactly 1,
+    otherwise `{ count: `${count} pedidos`, verb: 'feitos em' }` (0 included).
+  examples:
+    - 'orderCountLabel(1) == { count: "1 pedido", verb: "feito em" }'
+    - 'orderCountLabel(0) == { count: "0 pedidos", verb: "feitos em" }'
+
+sf.features.orders.order-presentation.distinctOrderedProducts:
+  description: |
+    List each ordered product once, paired with its most recent order, newest order first.
+    Sort a copy of `orders` by `placedAt` descending (`b.placedAt.localeCompare(a.placedAt)`; equal timestamps keep input order),
+    then walk each order's `lines` in order and push `{ line, order }` the first time a `line.productId` is seen.
+    Do not mutate `orders`; return the original line and order objects. No orders gives `[]`.
+
+sf.features.orders.order-presentation.discountLabel:
+  description: |
+    Label of an order's stored discount: `Desconto Pix` when `paymentMethod === 'SIMULATED_PIX'`, otherwise `Desconto`.
+    The rate is not stored, so no percentage is shown.
+
+sf.features.orders.order-presentation.paymentLabel:
+  description: |
+    Describe how an order was paid, e.g. `Cartão fictício · Mastercard final 5100 · 3x sem juros` or `Pix simulado`.
+    - `paymentMethod === 'SIMULATED_PIX'` → `Pix simulado` (card and installments ignored).
+    - Any other method except `SIMULATED_CARD` (e.g. `null`) → `Não informado`.
+    - `SIMULATED_CARD` → `Cartão fictício · ${cardLabel(order.paymentCard ?? DEMO_CARD)}`; orders without a card snapshot were paid with the demo Visa,
+      giving `Cartão fictício · Visa final 4242`. When `installments` is truthy, append ` · à vista` for 1 or ` · {n}x sem juros` for more;
+      `null` or 0 appends nothing.
+    The separator is ` · ` (a middle dot U+00B7 between spaces).
+  examples:
+    - 'paymentLabel({ paymentMethod: "SIMULATED_CARD", paymentCard: null, installments: null }) == "Cartão fictício · Visa final 4242"'
+    - 'paymentLabel({ paymentMethod: "SIMULATED_CARD", paymentCard: { brand: "ELO", last4: "1234" }, installments: 1 }) == "Cartão fictício · Elo final 1234 · à vista"'
+
+# ---------------------------------------------------------------- orders/orders-server.ts
+
+sf.features.orders.orders-server.getOrders:
+  description: |
+    Server-only GET of the orders API for the signed-in user, forwarding the request cookies; resolves `null` when the request cannot be made.
+    `const config = getConfig()`, then
+    `fetch(`${config.api.internalBaseUrl}${config.api.publicBasePath}/orders${path}`, { headers: { cookie: cookies().toString() }, cache: 'no-store' })`.
+    Return the `Response` whatever its status. If the fetch throws (API unreachable), return `null` instead of throwing.
+
+sf.features.orders.orders-server.fetchOrders:
+  description: |
+    Fetch the signed-in user's orders (newest first, as the API sends them); `null` when the API is unavailable or refuses.
+    Call `getOrders('')`; when the response exists and `response.ok`, return `await response.json()` as `OrderResponse[]`; otherwise
+    (null response, 401, 500, ...) return `null`.
+
+sf.features.orders.orders-server.fetchOrder:
+  description: |
+    Fetch one order of the signed-in user: the order, `'not-found'` for a 404 (which also covers other users' orders), or `null` when unavailable.
+    Call `getOrders(`/${encodeURIComponent(orderId)}`)`. Status 404 → `'not-found'`; `response.ok` → `await response.json()` as `OrderResponse`;
+    anything else (null response, other error status) → `null`.
+
+# ---------------------------------------------------------------- orders/orders-view.tsx
+
+sf.features.orders.orders-view.OrdersView:
+  description: |
+    Client component for the "Seus pedidos" page body: breadcrumbs, order search, the Pedidos / Compre Novamente / Ainda não enviado tabs and the tab panel.
+    It shows only what `orders` contains, in the given order; it never invents orders.
+
+    State: `tab` (`TabId`, starts `'orders'`), `period` (starts `DEFAULT_PERIOD`), `draft` (the search input) and `query` (the submitted search), both `''`.
+    `options = useMemo(() => periodOptions(orders), [orders])`; `periodLabel` is the label of the option whose value is `period` (or `''`).
+
+    Markup, in order:
+    - `<main className="az-orders">`.
+    - `<nav className="az-orders__crumbs" aria-label="Trilha de navegação">` > `<ol>` with `<li><Link href="/account">Sua conta</Link></li>` and `<li aria-current="page">Seus pedidos</li>`.
+    - `<div className="az-orders__top">` with `<h1 className="az-orders__title">Seus pedidos</h1>` and `<form className="az-orders__search" role="search">` holding
+      `<label className="az-orders__search-field">` (a decorative 20×20 magnifier SVG with `aria-hidden="true"`, `<span className="visually-hidden">Pesquisar todos os pedidos</span>`,
+      and `<input type="search" placeholder="Pesquisar todos os pedidos" value={draft} />` whose change sets `draft`), then
+      `<button type="submit" className="az-orders__search-button">Buscar pedidos</button>`.
+      Submit: `preventDefault()`, set `query` to `draft.trim()`, switch to tab `'orders'`.
+    - `<div className="az-orders__tabs" role="tablist" aria-label="Seus pedidos">` with one
+      `<button type="button" role="tab" id={`az-orders-tab-${id}`} aria-controls="az-orders-panel" aria-selected={tab === id} className="az-orders__tab">{label}</button>`
+      per `TABS` entry; click selects it.
+    - `<div id="az-orders-panel" role="tabpanel" aria-labelledby={`az-orders-tab-${tab}`} className="az-orders__panel">` with the selected tab's content.
+
+    Tab `'orders'` with a `query` (searches ALL orders, the period is ignored): `found = searchOrders(orders, query)`.
+    - `<div className="az-orders__summary">` with a `<span>` holding `<strong>1 pedido</strong>` (or `<strong>{n} pedidos</strong>`) followed, as text directly in
+      that span, by ` corresponde a “{query}”` (n = 1) or ` correspondem a “{query}”`; then `<button type="button" className="az-orders__clear">Limpar pesquisa</button>`,
+      which empties `draft` and `query`.
+    - Then `<OrderList orders={found} />`, or when empty `<p className="az-orders__empty">Nenhum pedido encontrado para “{query}”.</p>`.
+
+    Tab `'orders'` without a query: `shown = ordersInPeriod(orders, period)`, `label = orderCountLabel(shown.length)`.
+    - `<div className="az-orders__summary">` with `<span id="az-orders-count"><strong>{label.count}</strong> {label.verb}</span>` (text e.g. `1 pedido feito em`),
+      then `<span className="az-orders__select">` with `<select aria-labelledby="az-orders-count" value={period}>` (one `<option value={value}>{label}</option>` per option;
+      change sets `period`) and a decorative 14×14 chevron SVG (`aria-hidden="true"`).
+    - Then `<OrderList orders={shown} />`, or when empty `<p className="az-orders__empty">` with `Parece que você não fez nenhum pedido ` + the period
+      (`nos últimos 30 dias` for `last30`, `periodLabel` for `months3`, `em {periodLabel}` for a year) + `. ` + `Escolha outro período para ver pedidos anteriores.`,
+      that last sentence only when `options.length > 2`.
+
+    Tab `'buy-again'`: `products = distinctOrderedProducts(orders)`. Empty → `<p className="az-orders__empty">Os produtos que você comprar aparecerão aqui.</p>`.
+    Otherwise `<ul className="az-orders__buy-again" aria-label="Compre novamente">` with, per `{ line, order }`, `<li key={line.productId} className="az-orders__buy-card">` holding
+    `<Link href={`/products/${encodeURIComponent(line.productId)}`} className="az-orders__buy-link">` (with `<span className="az-orders__buy-media"><ProductImage image={photoForSku(line.sku)} /></span>`
+    and `<span className="az-orders__buy-name">{line.productName}</span>`), then `<span className="az-orders__buy-date">Pedido em {formatOrderDate(order.placedAt)}</span>`
+    and `<BuyAgainButton productId={line.productId} />`.
+
+    Tab `'not-shipped'`: `pending = orders.filter(isNotYetShipped)`. Empty → `<p className="az-orders__empty">Todos os seus pedidos já foram enviados.</p>`.
+    Otherwise `<div className="az-orders__summary"><span><strong>1 pedido</strong> ainda não enviado</span></div>`
+    (plural: `<strong>{n} pedidos</strong> ainda não enviados`) followed by `<OrderList orders={pending} />`.
+  notes: |
+    Private helpers for the three panels and the icons are fine; `OrderList` is a separate unit in this file.
+
+sf.features.orders.orders-view.OrderList:
+  description: |
+    Render the given orders as a list of order cards, in the given order.
+    Markup: `<ul className="az-orders__list" aria-label="Pedidos">` with one `<li key={order.id}>` per order holding `<OrderCard order={order} />`.
+
+# ---------------------------------------------------------------- orders/recent-orders-card.tsx
+
+sf.features.orders.recent-orders-card.RecentOrdersCard:
+  description: |
+    Home "Seus pedidos" collection card: up to four recently ordered products with their delivery status, built from the user's persisted orders.
+    `products = distinctOrderedProducts(orders).slice(0, 4)`.
+
+    Markup, in order:
+    - `<section className="az-collection az-home-orders" aria-label="Seus pedidos">`.
+    - `<div className="az-collection__head">` with `<h2>Seus pedidos</h2>` and `<Link href="/orders" aria-label="Ver seus pedidos"><span aria-hidden="true">›</span></Link>` (U+203A).
+    - `<ul>` with class `az-home-orders__grid az-home-orders__grid--many` when there are 2 or more products, `az-home-orders__grid az-home-orders__grid--one` otherwise.
+      Per `{ line, order }`: `<li key={line.productId}>` > `<Link href={`/orders/${encodeURIComponent(order.id)}`} className="az-home-orders__item">` containing
+      `<span className="az-home-orders__media"><ProductImage image={photoForSku(line.sku)} /></span>`, `<span className="az-home-orders__name">{line.productName}</span>`
+      and `<span className="az-home-orders__status">{deliveryStatus(order).headline}</span>`.
+    - `<Link href="/orders" className="az-home-orders__all">Ver todos os pedidos</Link>`.
+    Server component: no hooks.

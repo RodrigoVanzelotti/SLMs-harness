@@ -1,0 +1,424 @@
+# Story backlog. Statuses: planned | in_progress | blocked | done | cancelled
+# "done" means implemented AND executed successfully at least once.
+
+iterations:
+  - id: 1
+    name: Foundations
+    stories:
+      - id: BE-001
+        owner: dev1
+        status: done
+        title: NestJS structure, config validation, health/readiness, logging
+      - id: BE-002
+        owner: dev1
+        status: blocked
+        title: Prisma/PostgreSQL connection and initial migrations
+        blocked_by: >-
+          Prisma generation and local migrations/seed ran successfully. Migration
+          drift and API integration still need an authorized disposable database run.
+      - id: BE-003
+        owner: dev1
+        status: blocked
+        title: Users module and registration
+        blocked_by: Unit tests pass against a fake; no database run yet.
+      - id: UI-001
+        owner: dev2
+        status: done
+        title: Next.js application shell
+      - id: UI-002
+        owner: dev2
+        status: done
+        title: Design-system primitives
+      - id: UI-003
+        owner: dev2
+        status: done
+        title: All required routes, unimplemented ones show Coming Soon
+      - id: PLAT-001
+        owner: dev3
+        status: done
+        title: pnpm workspace and root commands
+      - id: PLAT-002
+        owner: dev3
+        status: blocked
+        title: Dockerfiles for API and storefront
+        blocked_by: Docker is available locally; image builds were not verified in this run.
+      - id: PLAT-003
+        owner: dev3
+        status: blocked
+        title: Local PostgreSQL Kubernetes workload
+        blocked_by: Manifests render; never applied to a cluster.
+
+  - id: 2
+    name: Authentication vertical slice
+    stories:
+      - id: BE-004
+        owner: dev1
+        status: blocked
+        title: Login and persistent sessions
+        blocked_by: Needs PostgreSQL for the integration suite.
+      - id: BE-005
+        owner: dev1
+        status: blocked
+        title: Authentication guard and /auth/me
+        blocked_by: Same.
+      - id: BE-006
+        owner: dev1
+        status: blocked
+        title: Logout and session invalidation
+        blocked_by: Same.
+      - id: UI-004
+        owner: dev2
+        status: done
+        title: YAML-driven feature registry
+      - id: UI-005
+        owner: dev2
+        status: done
+        title: FeatureGate and route behaviour
+      - id: UI-006
+        owner: dev2
+        status: blocked
+        title: Registration UI
+        blocked_by: Builds; never exercised against a running API.
+      - id: UI-007
+        owner: dev2
+        status: blocked
+        title: Login and logout UI
+        blocked_by: Same.
+      - id: UI-008
+        owner: dev2
+        status: blocked
+        title: Authenticated account shell
+        blocked_by: Same.
+      - id: PLAT-004
+        owner: dev3
+        status: blocked
+        title: API and storefront Deployments and Services
+        blocked_by: Render correctly; never applied.
+      - id: PLAT-005
+        owner: dev3
+        status: blocked
+        title: Ingress
+        blocked_by: Same.
+      - id: PLAT-006
+        owner: dev3
+        status: blocked
+        title: Migration Job
+        blocked_by: Same.
+      - id: PLAT-007
+        owner: dev3
+        status: done
+        title: Kustomize overlays
+        note: >-
+          All three overlays render. Fixed a real defect: overlay-generated
+          Secrets were namespace-less, so consumers kept the unhashed name.
+
+  - id: 3
+    name: Stable MVP skeleton
+    stories:
+      - id: BE-007
+        owner: dev1
+        status: done
+        title: Catalog/cart/orders module boundaries and application interfaces
+      - id: PLAT-008
+        owner: dev3
+        status: done
+        title: OpenAPI artifact and shared API types
+        note: >-
+          Shared types build; OpenAPI regeneration succeeded on 2026-09-24
+          with no difference from the committed document.
+      - id: PLAT-009
+        owner: dev3
+        status: done
+        title: CI pipeline (install, lint, typecheck, test, build, manifests, images)
+        note: Written and committed; never executed on a runner.
+      - id: PLAT-010
+        owner: dev3
+        status: blocked
+        title: Integration smoke tests through the Ingress
+        blocked_by: Script written; needs a deployment.
+
+  - id: 4
+    name: Homepage visual refinement
+    stories:
+      - id: HOME-VISUAL-001
+        owner: dev2
+        status: done
+        title: Refine homepage promotions, product shelves, typography and footer
+        note: >-
+          Reuses existing mock records and product cards. Responsive Chromium
+          checks, workspace validation and production builds passed 2026-09-24.
+      - id: HOME-TESTS-001
+        owner: dev2
+        status: planned
+        title: Add committed regression tests for horizontal rail interactions
+
+  - id: 5
+    name: Persistent cart
+    stories:
+      - id: CART-001
+        owner: dev2
+        status: done
+        title: Authenticated cart page with real catalog data and persistence
+        note: >-
+          Existing schema and session reused. Seven cart integration and seven
+          frontend provider tests pass, plus full browser lifecycle and responsive
+          checks. Shared flag enabled by FLAGS-001.
+
+  - id: 6
+    name: Dynamic product detail
+    stories:
+      - id: PRODUCT-001
+        owner: dev2
+        status: done
+        title: Real product details with category recommendations and cart integration
+        note: >-
+          ID/slug catalog endpoint, existing schema and session, three-column layout,
+          quantity-aware cart addition, unavailable-image state and disabled checkout.
+          56 unit tests, 26 database integration tests and browser checks pass.
+          Shared demo fixtures seed p1-p20 without overwriting records; all catalog
+          products share details/cart. Photo and empty-data fallbacks verified.
+          Shared productDetails flag enabled by FLAGS-001.
+
+  - id: 7
+    name: Academic checkout
+    stories:
+      - id: CHECKOUT-001
+        owner: dev2
+        status: done
+        title: Authenticated checkout with saved addresses and transactional orders
+        note: >-
+          Existing cart/session/order models reused. Simulated payment, server totals,
+          immutable order snapshots, inventory rollback and idempotent confirmation.
+          New migration applied locally; shared checkout flag stays disabled.
+
+  - id: 8
+    name: Sell on Amazon page
+    stories:
+      - id: SELL-001
+        owner: dev2
+        status: done
+        title: '"Venda na Amazon" landing page reproducing the amazon.com.br reference'
+        note: >-
+          Content-only page on /sell reusing AmazonHeader (current item marked) and
+          AmazonFooter. Local copies of the reference imagery, native <details> FAQ.
+          50 storefront unit tests and Chromium checks at 1890px and 390px pass.
+          Shared sell flag enabled (static content, no backend dependency).
+
+  - id: 9
+    name: Customer service page
+    stories:
+      - id: HELP-001
+        owner: dev2
+        status: done
+        title: '"Atendimento ao Cliente" page reproducing the amazon.com.br reference'
+        note: >-
+          /help with AmazonHeader (current item marked), customer-service bar, recent
+          products taken only from the signed-in user's real orders (GET /orders, newest
+          first, distinct, max 6; photo by order-item SKU), quick-links strip, help
+          library search and tabbed topics, AmazonFooter. No orders: no product cards.
+          58 storefront unit tests and Edge headless checks at 1770/1280/1024/500px pass.
+          Shared help flag enabled (same precedent as sell).
+
+  - id: 10
+    name: Browser tab identity
+    stories:
+      - id: TAB-001
+        owner: dev2
+        status: done
+        title: Tab title and Amazon favicon
+        note: >-
+          Root metadata title "Amazon.com.br | Tudo pra você, de A a Z." and
+          app/icon.svg derived from the AmazonLogo colors. Verified in next dev and
+          next start; build compiled (standalone step: known Windows EPERM).
+
+  - id: 11
+    name: Order history
+    stories:
+      - id: ORDERS-001
+        owner: dev2
+        status: done
+        title: '"Seus pedidos" (Devoluções e Pedidos) backed by persisted orders'
+        note: >-
+          /orders and /orders/:id read only GET /api/v1/orders. Orders gain nullable
+          delivered_at/delivery_note (migration 20260929000000_order_delivery). Year
+          filter lists only years with orders; relative periods, search by product name
+          or order number, computed counter, tabs. One demo order in
+          config/demo-orders.json, persisted by seed:demo-orders for an existing account
+          (DEMO_ORDER_EMAIL). Shared orders module also feeds /help and a Home card.
+          Shared orders flag enabled.
+
+  - id: 12
+    name: Amazon product detail page
+    stories:
+      - id: PRODUCT-002
+        owner: dev2
+        status: done
+        title: Product detail page following the 8BitDo Ultimate 2C reference, generic for every product
+        note: >-
+          One template for all catalog records. Breadcrumb from categories.parent_id
+          (migration 20260930000000_category_hierarchy, API categoryPath), variants as
+          sibling catalog records, purchase banner from real orders, buy box on the
+          existing cart/checkout, server-only presentation fixtures. See
+          docs/product-details.md. 661-check audit of all 27 products in the browser.
+      - id: INTEGRATION-001
+        owner: dev2
+        status: done
+        title: End-to-end integration audit (Home -> product -> variant -> cart -> checkout -> order -> Seus pedidos -> Atendimento -> product)
+        note: >-
+          Home cards no longer print name/price from config/demo-products.json: the
+          fixture only curates which products appear; name, price and stock come from
+          the catalog record (features/home/home-catalog.ts). Browser journey with a
+          temporary DB price proved every screen shows the same record and the order
+          snapshot/UUID flows to /orders, the Home orders card and /help (30/30).
+
+  - id: 13
+    name: Product page follow-ups
+    stories:
+      - id: FLAGS-001
+        owner: dev2
+        status: done
+        title: Enable productDetails, cart and checkout in the shared config/features.yaml
+        note: >-
+          productDetails, cart, checkout and browsingHistory (every implemented feature)
+          are on in the shared config; features.spec asserts it. Unbuilt destinations
+          (catalog, account, footer and account-hub pages, productReviews) stay off and
+          keep rendering Coming Soon. config-schema specs use inline fixtures, unchanged.
+      - id: REVIEWS-001
+        owner: dev1
+        status: done
+        title: Customer reviews backend (write, list, rating summary, helpful votes, media)
+        note: >-
+          Reviews module with own tables and migration; verified purchase through
+          ORDERS_API.hasPurchased; aggregates from a reviews summary endpoint; demo ratings
+          seeded as DEMO fixtures. No media upload (no file storage).
+      - id: BROWSE-001
+        owner: dev2
+        status: done
+        title: Category and brand listing pages (and real search results)
+        note: >-
+          Real listing with search, category, brand, price and stock filters, sort and
+          pagination; API gained q/sort/price/stock filters plus categories and facets
+          endpoints. No migration.
+      - id: NOTFOUND-001
+        owner: dev2
+        status: planned
+        title: Return HTTP 404 for unknown products
+        note: >-
+          Today the not-found UI streams with status 200 + noindex because the global
+          app/loading.tsx opens a Suspense boundary before notFound(). Options: move the
+          global loading state into route groups that need it, or check existence in
+          middleware.
+      - id: PIX-001
+        owner: dev1
+        status: done
+        title: Pix discount ("5% off à vista no Pix") applied by checkout
+        note: >-
+          Server-side discount in quote and transaction, rate in validated API config,
+          single rounding rule in api-contract, shown on product page, cart, checkout and
+          order pages. 6 new integration cases.
+
+      - id: CARD-001
+        owner: dev1
+        status: done
+        title: Add a simulated card and choose interest-free installments at checkout
+        note: >-
+          Saved cards (brand, last4, holder, expiry only; number validated in the browser,
+          no CVV), up to 10x sem juros with a R$ 5,00 minimum installment from API config,
+          validated in the order transaction and snapshotted on the order. 6 new
+          integration cases.
+
+      - id: CATALOG-BATCH-001
+        owner: dev1
+        status: done
+        title: Batch catalog read for the Home (GET /catalog/products?slugs=...)
+        note: >-
+          Delivered with CATALOG-002: ?slugs= (comma-separated, max 48, validated) on the
+          list endpoint, openapi.json regenerated; the Home resolves every rail with one
+          call (listBySlugs in product-server.ts). Covered by catalog.e2e and home-catalog.spec.
+      - id: CATALOG-002
+        owner: dev2
+        status: done
+        title: Expand the demo catalog to ~150 products and rank related products
+        note: >-
+          123 new demo records (p24-p146) in the existing fixtures/seed: 48 new categories
+          (new root Esportes), 30 new brands, 24 colour families in the 8BitDo pattern,
+          one image per product/colour (generated SVG or DummyJSON photo, see
+          public/images/products/catalog/SOURCES.md), mixed stock. relatedProducts ranks
+          by category distance, shared categories, stock, brand/attributes/price and
+          collapses families (related-products.ts). Seed run on the local DB (27 -> 150).
+      - id: CATALOG-PHOTOS-001
+        owner: dev2
+        status: done
+        title: Complete local product photography for the current catalog
+        note: >-
+          All 150 current products have distinct local photographs. Replaced 97 SVG
+          illustrations, filled eight missing photos and separated p19's reused shoe
+          photo. Cards, galleries and saved-history media agree. Commercial fields
+          are unchanged. Browser verified all details, listing/search, cart/checkout
+          with all 146 in-stock products and responsive layouts. See
+          docs/product-photography.md for the audit and source attribution.
+      - id: CATALOG-LEGACY-001
+        owner: dev1
+        status: planned
+        title: Move the 4 base-seed products (seed.ts) into the demo taxonomy
+        note: >-
+          usb-c-charger-65w, wireless-mouse-quiet, the book and the kettle live in the
+          English categories electronics/books/home-kitchen, so their related rail only
+          sees each other (2 cards).
+      - id: PDP-A11Y-001
+        owner: dev2
+        status: planned
+        title: Trap focus inside the product image viewer
+        note: >-
+          ImageViewer (features/product/product-gallery.tsx) sets aria-modal but Tab can
+          still leave the dialog.
+      - id: PDP-META-001
+        owner: dev2
+        status: planned
+        title: Keep the default title when product metadata cannot be loaded
+        note: >-
+          generateMetadata turns an API failure into "Produto não encontrado"; only a real
+          404 should.
+      - id: CATALOG-PATH-001
+        owner: dev1
+        status: planned
+        title: Resolve all breadcrumb chains of a product in one query
+        note: >-
+          CatalogService.getProduct runs one recursive query per category of the product.
+
+  - id: 14
+    name: Storefront completion
+    stories:
+      - id: FOOTER-001
+        owner: dev2
+        status: done
+        title: Footer institutional pages ("Conheça-nos" and "Ganhe dinheiro conosco")
+        note: >-
+          12 content pages from one typed template (features/corporate); no fabricated
+          facts (test-enforced); honest notices where Amazon lists real records.
+      - id: FOOTER-002
+        owner: dev2
+        status: done
+        title: Footer help and payment pages
+        note: >-
+          7 help-article pages from typed content (features/customer-pages) describing the
+          store's real behaviour; unavailable programmes are stated as such.
+      - id: ACCOUNT-001
+        owner: dev2
+        status: done
+        title: Account hub destinations ("Sua conta")
+        note: >-
+          Addresses (delete, default), security (name, password, e-mail with session
+          revocation) and lists (new module, two tables) are real; six pages are truthful
+          empty states.
+
+next_up:
+  - id: FIRSTRUN-001
+    title: First cluster run
+    steps:
+      - pnpm --filter @amazon-mvp/database generate
+      - pnpm --filter @amazon-mvp/database drift:check   # verify hand-written SQL
+      - make bootstrap && make test && make typecheck
+      - make openapi && commit docs/openapi.json
+      - make cluster && make images && make deploy && make migrate && make seed
+      - make smoke

@@ -1,0 +1,603 @@
+# Behavior text for group sf-components (storefront components/, config/, middleware.ts).
+# Merged into spec/contracts by tools/planner/build_bundle.py.
+
+sf.components.amazon-logo.AmazonLogo:
+  description: |
+    Inline SVG of the "amazon" wordmark with the orange smile arrow; `variant` picks white or near-black text.
+
+    Render one `<svg viewBox="0 0 200 66" role="img" aria-label="Amazon" className={className}>`
+    containing, in order:
+    - `<text x="2" y="40" fontFamily="Arial, Helvetica, sans-serif" fontSize="40" fontWeight="700"
+      letterSpacing="-1" fill={fill}>amazon</text>`, where `fill` is `#fff` for `variant="light"`
+      and `#111` otherwise (default `dark`).
+    - The smile: `<path d="M16 49C40 62 92 63 116 45" fill="none" stroke="#ff9900" strokeWidth="5"
+      strokeLinecap="round" />`.
+    - The arrow head: `<path d="M104 40L120 43.5L109 55Z" fill="#ff9900" />`.
+    No external image and no other elements.
+
+sf.components.amazon.account-icons.AccountIcon:
+  description: |
+    Account-hub icon: a 52px pale-blue circle badge with the flat illustration for `type` drawn on top.
+
+    Render `<svg viewBox="0 0 56 56" width="52" height="52" aria-hidden="true" role="presentation">`
+    containing first `<circle cx="28" cy="28" r="28" fill={CIRCLE} />` and then `ILLUSTRATIONS[type]`
+    (provided; each entry is already a `<g>`). Purely decorative: no title or text.
+
+sf.components.amazon.account-menu.AccountMenu:
+  description: |
+    Header "Olá, {nome} / Contas e Listas" item: a login link for guests, or a hover/focus dropdown of list and account links with sign-out.
+
+    Client component. Uses `useRouter()` (`next/navigation`), state `open` (false) and `pending`
+    (false), a ref holding the close timer and a ref on the wrapper div. `firstName` is the first
+    word of `session.user.displayName` (split on a space).
+
+    Guest (`session` is null): render only `<Link href="/login" className="az-topbar__account">` with
+    `<span className="az-topbar__account-line1">Olá, faça login</span>` and
+    `<span className="az-topbar__account-line2">Contas e Listas</span>`.
+
+    Signed in: `<div ref={wrapper} className="az-topbar__account-wrap">` with these handlers:
+    - `onMouseEnter`: clear any pending close timer, then open.
+    - `onMouseLeave`: clear any timer, then `setTimeout(() => setOpen(false), 150)`.
+    - `onFocus`: open.
+    - `onBlur`: close unless `event.relatedTarget` is inside the wrapper (`wrapper.contains(...)`).
+
+    Inside the wrapper, in order:
+    1. `<Link href="/account" className="az-topbar__account" aria-expanded={open} aria-haspopup="true">`
+       with a line1 span `Olá, {firstName}` and a line2 span `Contas e Listas` (same classes as above).
+    2. Only while open, `<div className="az-account-dropdown" role="menu">` containing:
+       - `div.az-account-dropdown__profile`: `<span className="az-account-dropdown__profile-text">`
+         with `Quem está comprando? Selecione um perfil.`, then
+         `<Link href="/security" className="az-account-dropdown__manage">` with the text
+         `Gerenciar perfis >` (write `&gt;` in JSX).
+       - `div.az-account-dropdown__columns` with two plain `<div>` columns:
+         - First: `<h3 className="az-account-dropdown__heading">Suas listas</h3>` and
+           `<ul className="az-account-dropdown__list">` with `<li key={label}><Link href>{label}</Link></li>`
+           per `LISTS_LINKS` entry.
+         - Second: `h3.az-account-dropdown__heading` `Sua conta`; a `ul.az-account-dropdown__list` of
+           `ACCOUNT_LINKS` built the same way; `<hr className="az-account-dropdown__divider" />`; then
+           another `ul.az-account-dropdown__list` with `<li><Link href="/login">Trocar contas</Link></li>`
+           and `<li><button type="button" disabled={pending}>`, whose text is `Saindo…` while pending
+           and `Sair da conta` otherwise.
+
+    Effects: clear the close timer on unmount. While open, add a `keydown` listener on `document`
+    that closes on `Escape`; remove it when closed or unmounted.
+
+    Sign-out click: `event.preventDefault()`, set pending, `await authClient.logout()`, then close,
+    `router.push('/')` and `router.refresh()`. Reset pending in `finally`; do not catch errors.
+
+sf.components.amazon.all-menu.AllMenu:
+  description: |
+    The navbar's "Todos" button and the left slide-in "Menu Todos" dialog listing every `ALL_MENU_SECTIONS` section and link.
+
+    Client component. State `open` (false); refs on the trigger button and on the panel.
+
+    Render a fragment:
+    1. Trigger `<button type="button" className="az-navbar__link az-navbar__link--all"
+       aria-expanded={open} aria-controls="az-all-menu">` that toggles `open` on click. Content: the
+       menu icon, then the text `Todos` (its accessible name and trimmed text must be exactly `Todos`).
+    2. Only while open, the overlay `<div className="az-all-menu" data-testid="az-all-menu-overlay">`;
+       clicking it closes the menu. Inside, in order:
+       - The panel `<div id="az-all-menu" className="az-all-menu__panel" role="dialog" aria-modal="true"
+         aria-label="Menu Todos" tabIndex={-1}>`. Its `onClick` calls `event.stopPropagation()`, so
+         clicks inside the panel do not close it. It contains:
+         - `<div className="az-all-menu__header">`: the user icon, then `Olá, {firstName}`, or
+           `Olá, faça seu login` when `firstName` is undefined. This is not a heading.
+         - `<div className="az-all-menu__content">` with, per section (key = title),
+           `<section className="az-all-menu__section">` holding `<h2 className="az-all-menu__title">{title}</h2>`
+           and `<ul className="az-all-menu__list">` of
+           `<li key={label}><a href={link.href} className="az-all-menu__link">{label}{chevron}</a></li>`.
+           Use a plain `<a>`, not `next/link`: the hrefs are absolute amazon.com.br URLs and
+           `javascript:void(0)`. The chevron icon is added only when `section.submenu` is true and the
+           label is not `Ver tudo`. The dialog's headings and links are exactly these, in data order.
+       - After the panel, still inside the overlay: `<button type="button" className="az-all-menu__close"
+         aria-label="Fechar menu">` with the close icon; it closes the menu.
+
+    Effect while open: save `document.body.style.overflow` and set it to `hidden`; add a `document`
+    `keydown` listener that closes on `Escape`; focus the panel. The cleanup restores the saved
+    overflow, removes the listener and focuses the trigger again.
+
+    The icons (private helpers) are decorative inline SVGs with `viewBox="0 0 24 24"`,
+    `aria-hidden="true"` and no text; see notes.
+  notes: |
+    Icon markup of the original:
+    - Menu: 18x18, `fill="none" stroke="currentColor" strokeWidth="2"`,
+      `<path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />`.
+    - User: 26x26, `fill="currentColor"`,
+      `<path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5Z" />`.
+    - Chevron: 16x16, `fill="none" stroke="currentColor" strokeWidth="2"`,
+      `<path d="m9 5 7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />`.
+    - Close: 26x26, `fill="none" stroke="currentColor" strokeWidth="2.4"`,
+      `<path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />`.
+
+sf.components.amazon.amazon-footer.AmazonFooter:
+  description: |
+    Site footer: "Voltar ao início" bar, four link columns, logo with "Brasil", legal links and the company and payment text.
+
+    `<footer className="az-footer">` containing, in order:
+    1. `<a href="#top" className="az-footer__back-to-top">Voltar ao início</a>`.
+    2. `<nav className="az-footer__main" aria-label="Informações e ajuda">` >
+       `<div className="az-footer__columns">` > per `COLUMNS` entry (key = title)
+       `<section className="az-footer__column">` with `<h3 className="az-footer__heading">{title}</h3>`
+       and `<ul className="az-footer__list">` of `<li key={href}><Link href>{label}</Link></li>`.
+    3. `<div className="az-footer__bottom">`: `<AmazonLogo variant="light" className="az-footer__logo" />`,
+       then `<span className="az-footer__country">` with the Brazil flag icon, a space and `Brasil`.
+    4. `<div className="az-footer__legal">` containing:
+       - `<nav className="az-footer__legal-links" aria-label="Legal">` with one link per `BOTTOM_LINKS`
+         entry (key = label, text = label): a plain `<a href="#">` when `href` is `#`, else
+         `<Link href>` (so `Condições de Uso` -> `/conditions-of-use`, `Notificação de Privacidade` -> `/privacy`).
+       - `<p className="az-footer__copyright">© 2021-2026 Amazon.com, Inc. ou suas afiliadas</p>`.
+       - `<div className="az-footer__institutional">` with three paragraphs:
+         - `p.az-footer__company`: `Amazon Serviços de Varejo do Brasil Ltda. | CNPJ 15.436.940/0001-03`
+         - `p.az-footer__address`: `Av. Juscelino Kubitschek, 2041, Torre E, 18º andar - São Paulo CEP: 04543-011 | `,
+           then `<a href="#">Fale conosco</a>`, then ` | ajuda-amazon@amazon.com.br`.
+         - `p.az-footer__payments`: `Formas de pagamento aceitas: cartões de crédito (Visa, Mastercard, Elo e Amex), Pix, Nupay, pontos Livelo e parcelamento sem cartão.`
+
+    Flag icon (private helper): `<svg viewBox="0 0 24 16" width="20" height="14" aria-hidden="true">`
+    with `<rect width="24" height="16" fill="#009c3b" />`, `<path d="M12 2 22 8 12 14 2 8Z" fill="#ffdf00" />`
+    and `<circle cx="12" cy="8" r="3.2" fill="#002776" />`.
+
+sf.components.amazon.amazon-header.AmazonHeader:
+  description: |
+    Server-rendered Amazon header: top bar (logo, "Enviar para", search, account, orders, cart) and the "Categorias" navbar.
+
+    Load data in this order:
+    - `session = await getServerSession()`; `firstName` = first word of `session.user.displayName`
+      (undefined for guests).
+    - Addresses: only when there is a session and `isFeatureEnabled('addresses')`, use
+      `await fetchAddresses()`; otherwise use `[]`. Never call `fetchAddresses` for guests or with the
+      feature off.
+    - `browsingHistory = isFeatureEnabled('browsingHistory')`.
+    - Departments: when `isFeatureEnabled('catalog')`, `await searchDepartments(search?.category)`;
+      otherwise `{ options: [], selected: '' }`.
+
+    "Enviar para" target (private helper) from the addresses value:
+    - `null` (API unavailable): label `Seus endereços`, href `/addresses`.
+    - The address with `isDefault: true` (never just the first one): label `${city} ${postalCode}`,
+      href `/addresses`.
+    - No default address (including `[]`): label `Cadastrar endereço`, href `ADD_ADDRESS_HREF`.
+
+    Markup: `<header className="az-header">` with:
+    1. `<div className="az-topbar">` containing, in order:
+       - `<Link href="/" className="az-topbar__logo" aria-label="Amazon.com.br - Página inicial">` with
+         `<AmazonLogo variant="light" />` and `<span className="az-topbar__tld">.com.br</span>`.
+       - `<Link href={target.href} className="az-topbar__deliver">` with
+         `<span className="az-topbar__deliver-line1">`: `Enviar para {firstName}`, or `Olá` for guests;
+         and `<span className="az-topbar__deliver-line2">`: pin icon, one space, then the label. There
+         is no other text or whitespace, so the link's `textContent` is exactly, for example,
+         `Enviar para Ada Porto Alegre 90020060`, `Enviar para Ada Seus endereços` or `Olá Cadastrar endereço`.
+       - `<form action="/products" method="GET" className="az-search" role="search">` with:
+         - `<label htmlFor="az-search-department" className="visually-hidden">Selecionar departamento</label>`
+           and `<select id="az-search-department" name="category" className="az-search__department"
+           key={`department-${departments.selected}`} defaultValue={departments.selected}>`. Options:
+           `<option value="">Todos</option>`, then `<option key={slug} value={slug}>{name}</option>` per
+           `departments.options` entry.
+         - `<label htmlFor="az-search-input" className="visually-hidden">Pesquisar Amazon.com.br</label>`
+           and `<input id="az-search-input" name="q" type="text" className="az-search__input"
+           placeholder="Pesquisar Amazon.com.br" autoComplete="off" maxLength={CATALOG_SEARCH_MAX_LENGTH}
+           key={`query-${search?.q ?? ''}`} defaultValue={search?.q} />`.
+         - `<button type="submit" className="az-search__button" aria-label="Pesquisar">` with the search icon.
+       - `<AccountMenu session={session} />`.
+       - `<Link href="/orders" className="az-topbar__orders">` with
+         `<span className="az-topbar__account-line1">Devoluções</span>` and
+         `<span className="az-topbar__account-line2">e Pedidos</span>`.
+       - `<CartHeaderLink icon={<CartIcon />} />`.
+    2. `<nav className="az-navbar" aria-label="Categorias">` > `<div className="az-navbar__links">` with
+       `<AllMenu firstName={firstName} />` first. Then, per `NAV_LINKS` entry (key = label): when
+       `browsingHistory` is on and the label is `Histórico de navegação`, render `<BrowsingHistoryMenu />`
+       (it renders its own `az-navbar__link` button with that name). Otherwise render
+       `<Link href={href} className="az-navbar__link" aria-current={href === currentHref ? 'page' : undefined}>{label}</Link>`.
+
+    So the trimmed texts of the navbar's `.az-navbar__link` elements are `Todos` followed by the eight
+    `NAV_LINKS` labels. With `browsingHistory` off, `Histórico de navegação` is a link to `/products`.
+    `currentHref: '/sell'` marks only `Venda na Amazon`.
+
+    The icons (private helpers) are decorative SVGs with `viewBox="0 0 24 24"` and `aria-hidden="true"`;
+    see notes.
+  notes: |
+    Icon markup of the original:
+    - Pin: 14x14, `fill="currentColor"`,
+      `<path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z" />`.
+    - Search: 18x18, `fill="#0f1111"`,
+      `<path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 5L20.49 19l-5-5Zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14Z" />`.
+    - Cart: 30x30, `fill="none" stroke="#fff" strokeWidth="1.6"`,
+      `<path d="M3 4h2l2.4 12.4a2 2 0 0 0 2 1.6h7.2a2 2 0 0 0 2-1.6L20 8H6" strokeLinecap="round" strokeLinejoin="round" />`,
+      then wheels `<circle cx="10" cy="21" r="1.4" fill="#fff" stroke="none" />` and the same at `cx="17"`.
+
+sf.components.amazon.category-section.CategorySection:
+  description: |
+    Home "Compre por categoria" block: a titled section with a horizontal rail of category tiles (image and name) linking to each listing.
+
+    `<section className="az-section az-section--categories" aria-label={title}>` with
+    `<div className="az-section__head">` > `<h2 className="az-section__title">{title}</h2>`, then
+    `<HorizontalRail label={title} className="az-category-rail">` holding one tile per category
+    (key = `id`): `<Link className="az-category" href>`, where href is
+    `categoryHref(category.category)` when `category.category` is set and `/products` otherwise.
+    Inside the tile: `<div className="az-category__image">` > `<ProductImage image={category.image} glyph={category.glyph} />`,
+    then `<span className="az-category__name">{name}</span>`.
+
+sf.components.amazon.hero-banner.HeroBanner:
+  description: |
+    Home hero: pantry promo card, a scrollable row of four campaign cards with prev/next buttons, and a row of six "discover" cards.
+
+    Client component. Images are local files at `/images/home/<name>.webp` (private helper
+    `imagePath(name)`), rendered with `next/image` `Image`. Every image has `alt=""` except the one noted.
+
+    Markup: `<section className="az-promotions" aria-label="Destaques e categorias">` with
+    `<h1 className="visually-hidden">Encontre produtos para o seu dia a dia</h1>` and
+    `<div className="az-promotions__layout">` containing:
+    1. `<Link href="/products?q=alimentos" className="az-promo az-promo--pantry">`:
+       `<span className="az-promo__eyebrow">Seu mercado</span>`,
+       `<h2>O essencial da sua despensa, em um só lugar</h2>`, and
+       `<div className="az-pantry-photos" aria-hidden="true">` with four 300x300 images, in order:
+       class `az-pantry-photos__oil` (`cooking-oil`, `priority`), `az-pantry-photos__rice` (`rice`,
+       `priority`), `az-pantry-photos__coffee` (`nescafe-coffee`), `az-pantry-photos__honey` (`honey-jar`).
+    2. `<div className="az-promotions__right">` with:
+       a. Campaign track `<div className="az-campaigns" id="home-campaigns" ref tabIndex={0}
+          aria-label="Campanhas: deslize para explorar">` with four `<article>`s:
+          - `id="slide-1" className="az-promo az-promo--beauty"`: one
+            `<Link href="/products?q=beleza" className="az-promo__full-link">` wrapping
+            `span.az-promo__eyebrow` `Beleza e cuidados`, `<h2>Seu momento<br />de se cuidar</h2>`,
+            `<p>Descubra seus novos favoritos</p>`, `<div className="az-beauty-photos" aria-hidden="true">`
+            with `red-lipstick` and `eyeshadow-palette-with-mirror` (300x300, `priority`), and
+            `span.az-promo__text-link` `Explore beleza ›`.
+          - `id="slide-2" className="az-promo az-promo--kitchen"`: `span.az-promo__eyebrow`
+            `Destaques do momento`, `<h2>Escolhas pra você</h2>`, `<div className="az-promo__tiles">` with
+            one `<Link href={`/products?q=${encodeURIComponent(label)}`}>` per `KITCHEN` item
+            (key = image) holding a 150x150 image and `<span>{label}</span>`, then
+            `<Link href="/products?department=home" className="az-promo__text-link">` `Veja mais para sua casa ›`.
+          - `id="slide-3" className="az-promo az-promo--devices"`: `<h2>Tecnologia para seu dia a dia</h2>`,
+            `<p>Trabalho, estudo e diversão</p>`, `div.az-promo__tiles` with one
+            `<Link href="/products?department=electronics">` per `COMPUTERS` item (same inner markup),
+            then `<Link href="/products?department=electronics" className="az-promo__text-link">`
+            `Explore eletrônicos ›`.
+          - No id, `className="az-promo az-promo--home"`: `<Link href="/products?department=home"
+            className="az-promo__full-link">` wrapping `span.az-promo__eyebrow` `Inspire-se`,
+            `<h2>Novidades para sua cozinha</h2>`, `<p>Pequenos detalhes.<br />Novas possibilidades.</p>`,
+            the 300x300 image `silver-pot-with-glass-cap` with `className="az-promo__large-image"` and
+            `alt="Panela com tampa de vidro"`, and `span.az-promo__text-link` `Confira a seleção ›`.
+          In each "... ›" text link, the `›` is a `<span aria-hidden="true">` after a space.
+       b. Only when the campaign track overflows: `<div className="az-campaign-controls"
+          aria-label="Navegar pelas campanhas">` with `<button type="button" aria-label="Campanha anterior"
+          aria-controls="home-campaigns">‹</button>` and the same with `aria-label="Próxima campanha"` and `›`.
+       c. `<div className="az-discover-wrap">` with the track `<div className="az-discover" id="home-discover"
+          ref tabIndex={0} aria-label="Mais categorias para explorar">`, holding one
+          `<Link className="az-discover__card" href={`/products?q=${encodeURIComponent(query)}`}>` per
+          `DISCOVER` item (key = image) with `<h3>{title}</h3>` and a 150x150 image. Then, only when that
+          track overflows, `<button type="button" className="az-discover__next" aria-label="Mais categorias"
+          aria-controls="home-discover">›</button>`.
+
+    State `overflow = { campaigns: false, discoveries: false }`; a track overflows when
+    `scrollWidth > clientWidth + 1`. A mount-only effect computes both, and recomputes them from one
+    `ResizeObserver` observing both tracks; the cleanup disconnects it. Use only `observe` and `disconnect`.
+
+    Scroll behavior is `'auto'` when `window.matchMedia('(prefers-reduced-motion: reduce)').matches`,
+    else `'smooth'`. Evaluate it only inside the click handlers.
+    - Campaign buttons: `track.scrollBy({ left: direction * (w + 12), behavior })`, where `w` is the
+      `getBoundingClientRect().width` of the first `article` in the track (fallback `clientWidth`);
+      previous is -1, next is +1.
+    - Discover button: at the end (`scrollLeft + clientWidth >= scrollWidth - 2`), `scrollTo({ left: 0 })`;
+      otherwise `scrollTo({ left: scrollLeft + clientWidth * 0.7 })`.
+
+sf.components.amazon.horizontal-rail.HorizontalRail:
+  description: |
+    Client wrapper that shows server-rendered children in a horizontally scrollable, keyboard-focusable track with previous/next arrows.
+
+    State: `id = useId()`, a ref on the track, and `edges = { previous: false, next: false }`.
+
+    `updateEdges()` reads the track: `previous = scrollLeft > 2`,
+    `next = scrollLeft + clientWidth < scrollWidth - 2`. It sets state only when a value changed.
+
+    Effect, re-run when `children` changes: create `new ResizeObserver(updateEdges)`, observe the track
+    and each of its element children, call `updateEdges()` once, and `disconnect()` in the cleanup. Use
+    only `observe` and `disconnect`: tests stub `ResizeObserver` with just those two methods.
+
+    `scroll(direction)`: `first` = width of the track's first element child
+    (`getBoundingClientRect().width`, 160 if none). Call
+    `track.scrollBy({ left: direction * Math.max(first, clientWidth - first), behavior })`, where
+    behavior is `'auto'` if `window.matchMedia('(prefers-reduced-motion: reduce)').matches`, else
+    `'smooth'`. Call `matchMedia` only here, never during render or in effects.
+
+    Markup: `<div className={`az-rail ${className}`}>` containing:
+    1. `<div className="az-rail__track" ref id={id} role="region" aria-label={label} tabIndex={0}
+       onScroll={updateEdges} onKeyDown>` with the children. On keydown, ignore events whose `target`
+       is not the track itself. For `ArrowRight`/`ArrowLeft`, call `preventDefault()` and
+       `scroll(+1)`/`scroll(-1)`.
+    2. Only when `edges.previous || edges.next`, two buttons:
+       - `<button type="button" className="az-rail__arrow az-rail__arrow--previous"
+         aria-label={`Voltar em ${label}`} aria-controls={id} disabled={!edges.previous}>` with
+         `<span aria-hidden="true">‹</span>`; click calls `scroll(-1)`.
+       - `<button type="button" className="az-rail__arrow az-rail__arrow--next"
+         aria-label={`Avançar em ${label}`} aria-controls={id} disabled={!edges.next}>` with
+         `<span aria-hidden="true">›</span>`; click calls `scroll(1)`.
+    Before any measurement (and in jsdom, where sizes are 0) no arrows are rendered.
+
+sf.components.amazon.product-card.ProductCard:
+  description: |
+    Product tile for rails and listings: photo, deal tag, name, stars, price, old price and optional delivery/stock lines, linking to `/products/{id}`.
+
+    `product` is either a home mock `Product` (has `price`, in reais) or a catalog record
+    (`CatalogItem`/`RatedCatalogItem`, has `priceMinor`). Derive:
+    - `catalog` = the product when `'priceMinor' in product`, else null; `mock` = the product when
+      `'price' in product`, else null.
+    - `presentation` = `productPresentation(catalog)` for catalog records. It returns
+      `{ images: ProductPhoto[]; demo: boolean; oldPriceMinor?: number; glyph?: GlyphKind }`.
+    - `price` (reais) = `catalog.priceMinor / 100`, else `mock.price`, else 0.
+    - `oldPrice` = `mock.oldPrice`; else `presentation.oldPriceMinor / 100` when set; else undefined.
+    - `discount` = `discountPercent(mock)` for mocks. For catalog records it is
+      `Math.round((1 - price / oldPrice) * 100)` when `oldPrice` is set, else undefined.
+    - `rating` = `catalog.rating` (only a `RatedCatalogItem` has one; mock ratings are never shown).
+    - Currency = `catalog.currency`, default `'BRL'`. Format with
+      `new Intl.NumberFormat('pt-BR', { style: 'currency', currency })`, and split with `formatToParts(price)`.
+
+    Content, in order:
+    1. `<div className="az-card__image">` > `<ProductImage image={mock?.image ?? presentation?.images[0]}
+       glyph={mock?.glyph ?? presentation?.glyph} />`.
+    2. `<div className="az-card__deal">` (always present). When there is a discount it holds
+       `<span className="az-card__discount">{discount}% off</span>` and
+       `<span className="az-card__deal-label">Oferta</span>`.
+    3. `<p className="az-card__name">{product.name}</p>`.
+    4. When `rating` is set: `<RatingStars rating={rating.average} reviewCount={rating.count} />`.
+    5. `<div className="az-card__price" aria-label={`Preço atual: ${formatter.format(price)}`}>` with
+       three `aria-hidden="true"` spans:
+       - `az-card__currency`: the `currency` part (`R$`).
+       - `az-card__price-main`: all `integer` and `group` parts joined (e.g. `1.234`).
+       - `az-card__cents`: the `fraction` part (e.g. `50`).
+       No decimal separator is rendered.
+    6. When `oldPrice` is set: `<span className="az-card__old-price">De: <del>{formatBRL(oldPrice)}</del></span>`.
+    7. When `freeDelivery` and `catalog.inStock`: `<span className="az-card__delivery">Entrega <strong>GRÁTIS</strong></span>`.
+    8. When `availability` and the catalog record is not in stock:
+       `<span className="az-card__stock az-card__stock--out">Indisponível no momento</span>`.
+    9. When `availability`, in stock and `availableQuantity <= LOW_STOCK`:
+       `<span className="az-card__stock az-card__stock--low">Apenas {availableQuantity} em estoque</span>`.
+    10. When `mock.badge` is set: `<span className="az-card__badge">{badge}</span>`.
+
+    The wrapper class is `az-card`, plus ` az-card--compact` when `compact`.
+    - Catalog record with an `action`: `<article className aria-label={product.name}>` holding
+      `<Link href={`/products/${id}`} className="az-card__detail-link" title={product.name}>{content}</Link>`,
+      followed by `action`, so the button is not inside the link.
+    - Otherwise the whole card is one `<Link href={`/products/${id}`} className title={product.name}>{content}</Link>`.
+      An `action` on a mock product is ignored.
+
+sf.components.amazon.product-collections.ProductCollections:
+  description: |
+    Home "Seleções de produtos" rail: an optional leading card, then one titled grid of compact product cards per collection.
+
+    `<HorizontalRail label="Seleções de produtos" className="az-collections">` containing `leading`
+    first (when given), then, per collection (key = id), `<section className="az-collection" aria-label={title}>` with:
+    - `<div className="az-collection__head">` holding `<h2>{title}</h2>` and
+      `<Link href="/products" aria-label={`Ver mais: ${title}`}><span aria-hidden="true">›</span></Link>`.
+    - `<div className="az-collection__grid">` with `<ProductCard key={product.id} product={product} compact />`
+      per product.
+
+sf.components.amazon.product-glyph.ProductGlyph:
+  description: |
+    Flat SVG product illustration for `kind` on a white square with a soft contact shadow, used when a product has no photo.
+
+    Render `<svg viewBox="0 0 120 120" className="pg" role="presentation" aria-hidden="true">` containing,
+    in order: `<rect width="120" height="120" fill="#fff" />`,
+    `<ellipse cx="60" cy="99" rx="32" ry="6" fill="#0f1111" opacity="0.08" />`, then `GLYPHS[kind]`
+    (provided). No text.
+
+sf.components.amazon.product-image.ProductImage:
+  description: |
+    Product photo with fallbacks: the photo; the glyph when there is no photo; otherwise, or after a load error, an "Imagem indisponível" placeholder.
+
+    Client component. State `failedSource: string | null` (initially null) holds the `src` whose load failed.
+    - When `image` is set and `image.src !== failedSource`: `<Image src={image.src} alt={image.alt}
+      width={240} height={240} className="az-product-photo" onError={() => setFailedSource(image.src)} />`
+      (`next/image`).
+    - Else, when there is no `image` and `glyph` is set: `<ProductGlyph kind={glyph} />`.
+    - Else: `<span className="az-product-no-photo" role="img" aria-label="Imagem do produto indisponível">`
+      holding the placeholder SVG and `<span>Imagem indisponível</span>`. This covers no image and no
+      glyph, and a failed photo even when a glyph was given.
+    Because the failure is remembered per `src`, re-rendering with a different `image.src` shows the
+    new photo again, without the placeholder.
+
+    Placeholder SVG: `<svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor"
+    strokeWidth="1.5" aria-hidden="true">` with `<rect x="6" y="9" width="36" height="30" rx="3" />`,
+    `<circle cx="17" cy="19" r="3" />` and `<path d="m8 35 10-10 7 7 6-6 9 9" />`.
+
+sf.components.amazon.product-section.ProductSection:
+  description: |
+    Home product row: title, "Ver mais" link and a horizontal rail of product cards; renders nothing when there are no products.
+
+    If `products` is empty, return `null`. Otherwise render `<section className="az-section" aria-label={title}>` with:
+    - `<div className="az-section__head">` holding `<h2 className="az-section__title">{title}</h2>` and
+      `<Link href={moreHref} className="az-section__more">Ver mais <span aria-hidden="true">›</span></Link>`.
+    - `<HorizontalRail label={title} className="az-product-rail">` with
+      `<ProductCard key={product.id} product={product} />` per product.
+
+sf.components.amazon.rating-stars.RatingStars:
+  description: |
+    Star rating row: the average with one decimal, five stars filled to the nearest half star, and the review count, read as one image label.
+
+    - `value` = `rating.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })`,
+      from the raw rating (`4.56` -> `4,6`; `4` -> `4,0`).
+    - `count` = `reviewCount.toLocaleString('pt-BR')` (`1234` -> `1.234`).
+    - `fill` = `${(Math.round(rating * 2) / 2 / 5) * 100}%` (4.56 rounds to 4.5 -> `90%`).
+
+    Render `<div className="az-rating" role="img" aria-label={`${value} de 5 estrelas, ${count} avaliações`}>`
+    with three `aria-hidden="true"` spans, in order:
+    - `az-rating__value` with `value`.
+    - `az-rating__stars` with the inline CSS variable `--fill` set to `fill`
+      (`style={{ ['--fill' as string]: fill }}`) and the text `★★★★★`.
+    - `az-rating__count` with `count`.
+
+sf.components.badge.Badge:
+  description: |
+    Small status pill: a span with class `badge`, plus `badge--live` or `badge--pending` for those tones.
+
+    Render `<span className={cls}>{children}</span>`, where `cls` is `badge` for `tone="neutral"` (the
+    default), `badge badge--live` for `live`, and `badge badge--pending` for `pending`.
+
+sf.components.button.Button:
+  description: |
+    Styled `<button>` with variant and full-width modifiers that passes every other button attribute through.
+
+    Class: `button button--{variant}` (default `primary`), then ` button--block` when `block`, then a
+    space and the extra `className`, trimmed. For example `button button--secondary button--block wide`,
+    or `button button--primary` with no extras. Spread `...rest` (type, onClick, disabled, aria-*) onto
+    the `<button>` and render `children` inside.
+
+sf.components.card.Card:
+  description: |
+    Plain content card: a `section.card` with an optional `h3.card__title` above the children.
+
+    `<section className="card">` containing `<h3 className="card__title">{title}</h3>`, only when
+    `title` is non-empty, then `children`.
+
+sf.components.coming-soon.ComingSoon:
+  description: |
+    Placeholder page for a route whose feature is switched off: title, "Feature disabled" badge, a note and a link home.
+
+    `<main className="page">` containing, in order:
+    - `<p className="eyebrow">Not built yet</p>`
+    - `<h1>{title}</h1>`
+    - `<div style={{ marginTop: 'var(--space-4)' }}>` > `<Badge tone="pending">Feature disabled</Badge>`
+    - `<p className="lede" style={{ marginTop: 'var(--space-6)' }}>` with `note`, or by default
+      `This section is part of the MVP plan but is switched off in this environment. It appears here as soon as the feature flag is turned on.`
+    - `<div className="state__actions">` > `<Link className="button button--secondary" href="/">Back to the home page</Link>`
+    No header or footer: callers check that no `contentinfo` landmark is rendered.
+
+sf.components.input.Input:
+  description: |
+    Labeled text input with an optional hint and error message, wired up with `aria-describedby` and `aria-invalid`.
+
+    `inputId` = the `id` prop, else `useId()`. `describedBy` = `${inputId}-hint` (when `hint`) and
+    `${inputId}-error` (when `error`), joined by a space, in that order.
+
+    Render `<div className="field">` with:
+    - `<label className="field__label" htmlFor={inputId}>{label}</label>`
+    - `<input id={inputId} className="field__input" aria-invalid={error ? 'true' : undefined}
+      aria-describedby={describedBy || undefined} {...rest} />`. `rest` is spread last, so a caller
+      may override these attributes.
+    - When `hint`: `<p className="field__hint" id={`${inputId}-hint`}>{hint}</p>`
+    - When `error`: `<p className="field__error" id={`${inputId}-error`} role="alert">{error}</p>`
+
+sf.components.navigation.Navigation:
+  description: |
+    Generic site nav bar (server component): brand link, the feature-gated Products/Cart/Orders/Account links, and the session actions.
+
+    - `registry = getFeatureRegistry()`, then `session = await getServerSession()`.
+    - For each `LINKS` entry, `state = registry.routeState(link.routeKey)`. Drop links whose state is
+      `'not-found'`. Keep `'coming-soon'` links, but mark them.
+
+    Render `<nav className="nav" aria-label="Main">` > `<div className="nav__inner">` with:
+    - `<Link className="nav__brand" href="/">MVP Storefront</Link>`
+    - `<div className="nav__links">` containing, per visible link (key = href), `<Link className href>`.
+      The class is `nav__link`, or `nav__link nav__link--muted` for coming-soon. The link text is the
+      label; coming-soon links also get `<span className="visually-hidden"> (not built yet)</span>`.
+      Last comes `<SessionActions user={session?.user ?? null} />`.
+    Read flags only through `getFeatureRegistry()`. Never read the features file or `process.env` here.
+
+sf.components.navigation.FeatureStampStrip:
+  description: |
+    Build-state strip that lists every configured feature with an on/off stamp.
+
+    `features = Object.entries(getFeatureRegistry().snapshot().features)`, in config order. Render
+    `<div className="stamp-strip">` > `<div className="stamp-strip__inner">` with `<span>Build state</span>`.
+    Then, per feature (key = name), `<span className>`: class `stamp`, or `stamp stamp--on` when
+    `enabled`. Its text is `{name} on` or `{name} off`, for example `catalog on`.
+
+sf.components.page-container.PageContainer:
+  description: |
+    Standard page shell: `main.page` (optionally narrow) with an optional eyebrow, the h1 title, an optional lede and the content.
+
+    `<main className={narrow ? 'page page--narrow' : 'page'}>` containing, in order:
+    - `<p className="eyebrow">{eyebrow}</p>` when `eyebrow`.
+    - `<h1>{title}</h1>`.
+    - `<p className="lede" style={{ marginTop: 'var(--space-3)' }}>{lede}</p>` when `lede`.
+    - `<div style={{ marginTop: 'var(--space-8)' }}>{children}</div>`, always rendered.
+
+sf.components.states.LoadingState:
+  description: |
+    Busy placeholder: an eyebrow label, three skeleton lines and a visually hidden label, announced politely.
+
+    `<div className="state" aria-busy="true" aria-live="polite">` with `<p className="eyebrow">{label}</p>`,
+    then three `<div className="skeleton-line" />` with inline widths `60%`, `85%` and `40%`, in that
+    order, then `<span className="visually-hidden">{label}</span>`. `label` defaults to `Loading`.
+
+sf.components.states.EmptyState:
+  description: |
+    Empty-result panel: a title, body text and an optional action area.
+
+    `<div className="state">` with `<h2 className="state__title">{title}</h2>`,
+    `<p className="state__body">{body}</p>`, and `<div className="state__actions">{action}</div>` only
+    when `action` is given.
+
+sf.components.states.ErrorState:
+  description: |
+    Error panel announced as an alert: a title (default `That request did not go through`), body text and an optional action.
+
+    Same markup as `EmptyState`, but the wrapper is `<div className="state state--error" role="alert">`:
+    `h2.state__title`, `p.state__body`, and `div.state__actions` only when `action` is given.
+
+sf.components.states.NotFoundState:
+  description: |
+    404 panel that says the page is not here, with a link back to the home page.
+
+    `<div className="state">` with `<p className="eyebrow">404</p>`,
+    `<h2 className="state__title">This page is not here</h2>`,
+    `<p className="state__body">The address may be mistyped, or the section is switched off for this environment.</p>`,
+    and `<div className="state__actions">` > `<Link className="button button--secondary" href="/">Back to the home page</Link>`.
+
+sf.config.feature-gate.FeatureRoute:
+  description: |
+    Page-level gate: renders the children when the route's feature is on, `ComingSoon` when it is off, or Next's 404 when configured so.
+
+    Read `getFeatureRegistry().routeState(routeKey)` on every render. Do not cache the registry or the
+    state: tests swap the registry between renders.
+    - `'not-found'`: call `notFound()` from `next/navigation` (it throws).
+    - `'coming-soon'`: return `<ComingSoon title={title} />` (no custom note).
+    - `'enabled'`: return the children in a fragment.
+    Unregistered route keys come back from the registry as `'enabled'`.
+
+sf.config.feature-gate.FeatureGate:
+  description: |
+    Renders `children` when the named feature is enabled, otherwise `fallback` (default `null`).
+
+    Check `getFeatureRegistry().isEnabled(feature)` on every render and wrap the chosen node in a
+    fragment.
+
+sf.config.feature-gate.isFeatureEnabled:
+  description: |
+    Returns whether the named feature is enabled in the storefront's feature registry.
+
+    Return `getFeatureRegistry().isEnabled(feature)`, read on every call. Unknown feature names are
+    `false`, as the registry reports them.
+
+sf.config.storefront-config.getConfig:
+  description: |
+    Loads and validates the storefront config once per process and returns the cached value afterwards.
+
+    If `cachedConfig` is null, set it to `loadConfig({ configDir: CONFIG_DIR, environment:
+    process.env.APP_ENV ?? process.env.NODE_ENV ?? 'local', schema: StorefrontConfigSchema, envMap: ENV_MAP })`.
+    Return `cachedConfig`. Do not catch errors: an invalid file throws here, so the render fails loudly
+    instead of acting as if features were off. Later calls return the same object without reading
+    files again, until `resetConfigCache()`.
+
+sf.config.storefront-config.getFeatureRegistry:
+  description: |
+    Returns the process-wide `FeatureRegistry` built from the configured features file, loading it on first use.
+
+    - If `cachedRegistry` is set, return it.
+    - `config = getConfig()`. The path is `config.featuresFile` when it is absolute (`isAbsolute`), else
+      `join(CONFIG_DIR, config.featuresFile)`.
+    - `raw = readYamlFile(path)`. When it is `undefined` (the file is missing), throw
+      `new Error(`Feature configuration not found at ${path}`)`.
+    - Set `cachedRegistry = FeatureRegistry.fromConfig(raw)` (validation errors propagate) and return it.
+
+sf.config.storefront-config.resetConfigCache:
+  description: |
+    Test hook that clears both caches, so the next `getConfig()`/`getFeatureRegistry()` reloads from disk.
+
+    Set `cachedConfig` and `cachedRegistry` to `null`. Production code never calls it.
+
+sf.middleware.middleware:
+  description: |
+    Next.js middleware that passes the request path to server components as the `x-pathname` request header.
+
+    Copy the incoming headers (`new Headers(request.headers)`), set `x-pathname` to
+    `request.nextUrl.pathname` (the path only, no query string), and return
+    `NextResponse.next({ request: { headers } })`. Nothing else: no redirects and no response headers.
+    The root layout reads this header to decide which routes render without the generic site chrome.

@@ -1,0 +1,11 @@
+{
+  "sf.features.orders.order-presentation.formatOrderDate": ["apps/storefront/test/order-presentation.formatOrderDate.new.spec.ts"],
+  "sf.features.orders.order-presentation.formatLongDate": ["apps/storefront/test/order-presentation.formatLongDate.new.spec.ts"],
+  "sf.features.orders.order-presentation.orderYear": ["apps/storefront/test/order-presentation.orderYear.new.spec.ts"],
+  "sf.features.orders.order-presentation.photoForSku": ["apps/storefront/test/order-presentation.photoForSku.new.spec.ts"],
+  "sf.features.orders.order-presentation.deliveryStatus": ["apps/storefront/test/order-presentation.deliveryStatus.new.spec.ts"],
+  "sf.features.orders.order-presentation.isNotYetShipped": ["apps/storefront/test/order-presentation.isNotYetShipped.new.spec.ts"],
+  "sf.features.orders.order-presentation.distinctOrderedProducts": ["apps/storefront/test/order-presentation.distinctOrderedProducts.new.spec.ts"],
+  "sf.features.orders.order-presentation.discountLabel": ["apps/storefront/test/order-presentation.discountLabel.new.spec.ts"],
+  "sf.features.orders.order-presentation.paymentLabel": ["apps/storefront/test/order-presentation.paymentLabel.new.spec.ts"]
+}

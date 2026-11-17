@@ -1,0 +1,405 @@
+# Planner-written behavior for group sf-content (corporate, customer-pages, legal, sell).
+# Unit id -> {description, examples?, notes?}. Merged into spec/contracts by build_bundle.py.
+
+# ---------------------------------------------------------------- corporate
+
+sf.features.corporate.corporate-body.CorporateBody:
+  description: |
+    Render a corporate page body: the group nav bar, then a `main` with the hero, one section per content block and an academic disclaimer.
+
+    Returns a fragment: `<CorporateSectionBar page={page} />`, then `<main className="az-corp">` containing, in order:
+
+    1. Hero: `<section className="az-corp-hero az-corp-hero--{hero.tone}" aria-labelledby="az-corp-title">` > `div.az-corp__inner.az-corp-hero__grid` with two children:
+       - `div.az-corp-hero__copy`: `p.az-corp-hero__eyebrow` (hero.eyebrow), `h1#az-corp-title.az-corp-hero__title` (hero.title), `p.az-corp-hero__lead` (hero.lead), then `<Actions actions={hero.actions} />` only when `hero.actions` is non-empty.
+       - `div.az-corp-hero__media` > `<HeroArt icon={hero.icon} />`.
+    2. For each block at index `i` (key `block.id`), with `titleId = "{block.id}-title"`: `<section id={block.id} aria-labelledby={titleId}>` with classes `az-corp-section az-corp-section--{block.kind}`, plus `az-corp-section--band` when `i` is odd and the kind is not `cta` (space-separated, no empty entries). Inside, `div.az-corp__inner` holds:
+       - `split`: `div.az-corp-split` (add ` az-corp-split--reverse` when `i` is odd) > `div.az-corp-split__copy` [optional `p.az-corp-split__eyebrow`; `h2#{titleId}.az-corp-section__title`; optional `p.az-corp-section__intro`; each paragraph as `p.az-corp-split__text`; when `bullets` is non-empty a `ul.az-corp-split__bullets` whose `li` holds a check icon then `<span>{bullet}</span>`; `<TextLink>` when `action`], then `div.az-corp-split__media` with `aria-hidden="true"` > `<CorpIcon name={block.icon} size={88} />`.
+       - `cta`: `div.az-corp-cta` > [`div` > `h2#{titleId}.az-corp-cta__title` (title) + `p.az-corp-cta__text` (text)], then `<Actions actions={block.actions} />`. No intro.
+       - Every other kind: `header.az-corp-section__header` > `h2#{titleId}.az-corp-section__title` + optional `p.az-corp-section__intro`; then the body:
+         - `cards`: `ul` with classes `az-corp-cards az-corp-cards--4` when `cards.length % 4 === 0`, else `az-corp-cards az-corp-cards--3`. Each `li.az-corp-card` holds `span.az-corp-card__icon` > `<CorpIcon name={card.icon} size={26} />`, `h3.az-corp-card__title`, `p.az-corp-card__text`, and `<TextLink>` when `card.action`. After the list, when `note`: `p.az-corp-cards__note` > `<CorpIcon name="info" size={18} />` + `<span>{note}</span>`.
+         - `steps`: `ol.az-corp-steps` > `li.az-corp-step` > `span.az-corp-step__number` (`aria-hidden="true"`, 1-based number), `h3.az-corp-step__title`, `p.az-corp-step__text`.
+         - `compare`: `div.az-corp-compare` with `role="region"`, `aria-labelledby={titleId}`, `tabIndex={0}` > `table.az-corp-compare__table` > `caption.az-corp-compare__caption` (caption); `thead > tr` with an empty `td`, then one `th scope="col"` per column; `tbody` with one `tr` per row: `th scope="row"` (label), then one `td` per value.
+         - `notice`: `div.az-corp-notice` > `<CorpIcon name="info" size={24} className="az-corp-notice__icon" />`, then a `div` with `p.az-corp-notice__message`, `p.az-corp-notice__detail` and `<TextLink>` when `action`.
+         - `faq`: `div.az-corp-faq` > per item a closed `details.az-corp-faq__item` > `summary.az-corp-faq__question` (`<span>{question}</span>` + plus icon) and `div.az-corp-faq__answer` with one `p` per answer string.
+    3. `p.az-corp__disclaimer` > `span.az-corp__inner` with exactly `Página informativa de um projeto acadêmico. O conteúdo descreve esta área em termos gerais e não representa informações oficiais da Amazon.`
+
+    Icons (inline SVG, `viewBox="0 0 20 20"`, `aria-hidden="true"`, `focusable="false"`, paths with `stroke="currentColor"`):
+    - Check: 18×18; one path `d="m4.5 10.5 3.5 3.5 7.5-8"`, `fill="none"`, `strokeWidth="2.2"`, round line caps and joins.
+    - Plus: 16×16, `className="az-corp-faq__plus"`; paths `d="M2 10h16"` and `d="M10 2v16"` (the second with `className="az-corp-faq__plus-v"`), `strokeWidth="2"`.
+
+    Tests require exactly one `h1` (the hero title). The `h2` texts must equal the block titles, in order. A `summary`'s text must be exactly the question. Every link must be internal.
+
+sf.features.corporate.corporate-body.CorporateSectionBar:
+  description: |
+    Secondary nav listing every link of the page's footer group, marking the current page; renders nothing if the group is unknown.
+
+    Find the group in `CORPORATE_GROUPS` whose `id === page.group`. If there is none, return `null`. Otherwise render
+    `<nav className="az-corp-bar" aria-label={group.label}>` > `div.az-corp-bar__inner` containing:
+    - `span.az-corp-bar__label` with `aria-hidden="true"` and the text `group.label`.
+    - `ul.az-corp-bar__links` with one `li` per link (key `href`) > next/link `<Link href={link.href} className="az-corp-bar__link">` with the text `link.label`. Set `aria-current="page"` only when `link.href === page.href`; otherwise leave the attribute out.
+
+    Render every link of the group, including the ones without a `pageKey` (such as `/sell`, `Venda na Amazon`). Tests count the group's links, and exactly one must be current.
+
+sf.features.corporate.corporate-body.Actions:
+  description: |
+    Row of button links for corporate actions; the first is the primary (yellow) button, the rest are secondary.
+
+    Render `div.az-corp__actions` with one next/link `Link` per action, in order. Key: `action.href + action.label`. Each has `href={action.href}` and the text `action.label`. The class is `az-corp__button az-corp__button--primary` for index 0, and `az-corp__button az-corp__button--secondary` for the others.
+
+sf.features.corporate.corporate-body.TextLink:
+  description: |
+    Inline text link for one corporate action, with its label followed by a small arrow icon.
+
+    Render next/link `<Link href={action.href} className="az-corp__text-link">` containing `action.label`, then (no space between them) an arrow `svg`:
+    - `viewBox="0 0 20 20"`, `width="14"`, `height="14"`, `aria-hidden="true"`, `focusable="false"`.
+    - One path: `d="M4 10h11m-4-4.5L15.5 10 11 14.5"`, `fill="none"`, `stroke="currentColor"`, `strokeWidth="2"`, `strokeLinecap="round"`, `strokeLinejoin="round"`.
+
+sf.features.corporate.corporate-content.getCorporatePage:
+  description: |
+    Return the corporate page whose `key` matches; throw an `Error` for a key that has no page.
+
+    Look up `CORPORATE_PAGES` by `page.key`. Building a `Map` once at module load is fine. Return the same object, not a copy. For an unknown key, throw a plain `Error` with the message `Unknown corporate page: <key>`.
+  examples:
+    - 'getCorporatePage(''press'').href == ''/press'''
+    - 'getCorporatePage(''advertise'').group == ''earn'''
+    - 'getCorporatePage(''sell'' as CorporatePageKey) throws Error(''Unknown corporate page: sell'')'
+
+sf.features.corporate.corporate-icons.ICONS:
+  description: |
+    Map from icon name (`IconName`) to an array of SVG path `d` strings, drawn on a 24×24 grid and meant to be stroked with `currentColor`.
+
+sf.features.corporate.corporate-icons.CorpIcon:
+  description: |
+    Decorative inline line icon: one `path` for each `d` string in `ICONS[name]`, on a 24×24 grid.
+
+    Render an `svg` with these attributes:
+    - `viewBox="0 0 24 24"`; `width` and `height` both `size` (default 24).
+    - `aria-hidden="true"`, `focusable="false"`, `className={className}` (left out when undefined).
+    - `fill="none"`, `stroke="currentColor"`, `strokeWidth={1.7}`, `strokeLinecap="round"`, `strokeLinejoin="round"`.
+
+    Its children are `ICONS[name].map((d, index) => <path key={index} d={d} />)`. `ICONS[name]` is a `string[]` of path data.
+
+sf.features.corporate.corporate-icons.HeroArt:
+  description: |
+    Decorative hero illustration (SVG): a soft backdrop, two placeholder content cards, a disc with the page icon drawn large, and three dots.
+
+    Render `<svg viewBox="0 0 360 280" className="az-corp-art" aria-hidden="true" focusable="false">` with these children, in order. Colours come from CSS by class, so add no fill or stroke attributes except the ones listed.
+    1. `circle.az-corp-art__soft`: cx 200, cy 140, r 122.
+    2. `g.az-corp-art__card` containing:
+       - `rect` x 22, y 54, width 124, height 74, rx 10.
+       - `rect.az-corp-art__accent` x 38, y 72, width 56, height 9, rx 4.5.
+       - `rect.az-corp-art__muted` x 38, y 92, width 92, height 6, rx 3.
+       - `rect.az-corp-art__muted` x 38, y 106, width 70, height 6, rx 3.
+    3. `g.az-corp-art__card` containing:
+       - `rect` x 232, y 182, width 112, height 66, rx 10.
+       - `circle.az-corp-art__accent` cx 256, cy 215, r 11.
+       - `rect.az-corp-art__muted` x 276, y 204, width 52, height 6, rx 3.
+       - `rect.az-corp-art__muted` x 276, y 218, width 38, height 6, rx 3.
+    4. `circle.az-corp-art__disc`: cx 190, cy 140, r 72.
+    5. `<g className="az-corp-art__icon" transform="translate(142 92) scale(4)" fill="none" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round">` with one `<path d>` per string in `ICONS[icon]` (key: index).
+    6. Three dots:
+       - `circle.az-corp-art__dot` cx 304, cy 58, r 9.
+       - `circle` with classes `az-corp-art__dot az-corp-art__dot--soft`, cx 330, cy 98, r 5.
+       - `circle.az-corp-art__dot` cx 58, cy 206, r 6.
+
+sf.features.corporate.corporate-routes.CORPORATE_ROUTES:
+  description: |
+    Paths served by the corporate template: the `href` of every `CORPORATE_GROUPS` link that has a `pageKey`, in group order, then link order.
+
+    Links without a `pageKey` (`/sell`, which has its own landing page) are left out. The root layout uses this list to pick the bare Amazon chrome.
+  examples:
+    - 'CORPORATE_ROUTES.length == 12'
+    - 'CORPORATE_ROUTES.slice(6, 8) == [''/amazon-science'', ''/brand-protection'']'
+    - 'CORPORATE_ROUTES.includes(''/sell'') == false'
+
+sf.features.corporate.corporate-shell.corporateMetadata:
+  description: |
+    Next.js metadata for a corporate page (title, description and Open Graph); `{}` while the page's feature flag is off.
+
+    If `isFeatureEnabled(key)` is false, return `{}`. The flag name is the page key, and the root layout's metadata then applies. Otherwise take `page = getCorporatePage(key)` and return exactly these keys:
+    - `title`: `page.title + ' | ' + SITE`.
+    - `description`: `page.description`.
+    - `openGraph`: `{ title: page.title, description: page.description }`.
+
+    `SITE` is `Amazon.com.br`, so with the shipped flags the title of `press` is `Comunicados à imprensa | Amazon.com.br`.
+
+sf.features.corporate.corporate-shell.CorporatePageShell:
+  description: |
+    Full corporate page: Amazon header, the corporate body for `pageKey`, and the Amazon footer, inside a wrapper with the corporate font.
+
+    Take `page = getCorporatePage(pageKey)`. Render a `div` with `id="top"` whose `className` is `amazon-corp-page`, a space, then `corporateFont.variable`. It contains `<AmazonHeader />` (no props), `<CorporateBody page={page} />` and `<AmazonFooter />`.
+
+    It does not check the feature flag: the route page wraps it in `FeatureRoute`.
+
+# ---------------------------------------------------------------- customer pages
+
+sf.features.customer-pages.customer-article.CustomerArticle:
+  description: |
+    Help-article body for the footer payment and help pages: breadcrumb, article (head, notice, contents, sections, related topics) and topics sidebar.
+
+    `slots` defaults to `{}` and is passed to every `Block`. Render `main.az-cp` > `div.az-cp__inner` containing:
+
+    1. `nav.az-cp__crumbs` with `aria-label="Trilha de navegação"` > `ol` with three `li`:
+       - next/link `Link href="/help"` with the text `Atendimento ao Cliente`.
+       - `page.category`, as plain text.
+       - `page.title`, on an `li` with `aria-current="page"`.
+    2. `div.az-cp__layout` containing the article, then the aside.
+
+    Article: `article.az-cp__article` with `aria-labelledby="az-cp-title"`, containing in order:
+    - `header.az-cp__head`:
+      - `span.az-cp__head-icon` > `<CustomerIcon name={page.icon} />`.
+      - A `div` with `h1#az-cp-title.az-cp__title` (title) and `p.az-cp__lead` (lead).
+    - Only when `page.notice` is set: a `div` with classes `az-cp__notice az-cp__notice--{tone}`, `role="note"` and `aria-label={notice.title}`. It holds:
+      - `span.az-cp__notice-icon` with `aria-hidden="true"`; its text is `!` when the tone is `warning`, otherwise `i`.
+      - A `div` with `p.az-cp__notice-title` (title) and `p.az-cp__notice-body` > `<Rich text={notice.body} />`.
+    - `nav.az-cp__toc` with `aria-label="Nesta página"`:
+      - `p.az-cp__toc-title` with `aria-hidden="true"` and the text `Nesta página`.
+      - A `ul` with, per section, an `li` > plain `<a href="#{section.id}">{section.title}</a>`.
+    - Per section: `section` with `id={section.id}`, class `az-cp__section` and `aria-labelledby="{id}-title"` > `h2#{id}-title.az-cp__section-title`, then `<Block block={b} slots={slots} />` for each block (key: index).
+    - Only when `page.related` is non-empty: `section.az-cp__section` with `aria-labelledby="az-cp-related"`. It holds:
+      - `h2#az-cp-related.az-cp__section-title` with the text `Tópicos relacionados`.
+      - `ul.az-cp__cards` with, per related key (`CUSTOMER_PAGES[key]`), an `li` > `Link href={related.href}` with classes `az-cp__card az-cp__card--icon`. The link holds `span.az-cp__card-icon` > `<CustomerIcon name={related.icon} size={28} />`, then `span.az-cp__card-text` > `span.az-cp__card-title` (title) + `span.az-cp__card-body` (summary).
+
+    Aside: `aside.az-cp__aside` with `aria-labelledby="az-cp-aside-title"`, containing:
+    - `h2#az-cp-aside-title.az-cp__aside-title` with the text `Mais tópicos de ajuda`.
+    - For each group in `GROUPS` (`payment`, then `help`): `div.az-cp__aside-group` > `h3.az-cp__aside-heading` (`GROUP_LABELS[group]`) and a `ul`. The list holds the pages of `CUSTOMER_PAGE_ORDER` in that group, each as `li` > `Link href={item.href} className="az-cp__aside-link"` with the text `item.title`. Set `aria-current="page"` only when `item.key === page.key`.
+    - Finally `Link href="/help" className="az-cp__aside-all"` with the text `Todos os tópicos de ajuda ` followed by `<span aria-hidden="true">›</span>`.
+
+    Tests check:
+    - The `h2` texts are exactly the section titles, then `Tópicos relacionados`, then `Mais tópicos de ajuda`.
+    - The aside links are the seven page hrefs in `CUSTOMER_PAGE_ORDER` order, then `/help`.
+    - The page has no search box.
+
+sf.features.customer-pages.customer-blocks.Rich:
+  description: |
+    Render customer-page rich text: a plain string as is, or an array whose strings render as text and whose `{ text, href }` parts render as internal links.
+
+    For a string, return it in a fragment. For an array, render each part in order, keyed by index: strings as text (`Fragment`), and objects as next/link `<Link href={part.href} className="az-cp__link">{part.text}</Link>`. Add no wrapper element and no extra spaces.
+
+sf.features.customer-pages.customer-blocks.Block:
+  description: |
+    Render one typed customer-page content block according to `block.kind`; a `slot` block renders the matching node from `slots`.
+
+    Use `<Rich text>` for every `RichText` value. By kind:
+    - `text`: one `p.az-cp__text` per paragraph, returned in a fragment with no wrapper.
+    - `list`: `ul.az-cp__list` > `li` per item.
+    - `steps`: `ol.az-cp__steps` > `li.az-cp__step` per item (key: title). Each holds:
+      - `span.az-cp__step-number` with `aria-hidden="true"` and the 1-based number.
+      - `span.az-cp__step-text` > `strong.az-cp__step-title` (title) + `span.az-cp__step-body` (body).
+    - `facts`: `table.az-cp__facts` > `caption.visually-hidden` (the caption text, which names the table), then `tbody` with one `tr` per item: `th scope="row"` (term) + `td` (detail). No `thead`.
+    - `methods`: `ul.az-cp__methods` > `li.az-cp__method` per item (key: title). Each holds:
+      - `span.az-cp__method-icon` > `<CustomerIcon name={icon} size={32} />`.
+      - `div.az-cp__method-text` with `h3.az-cp__method-title` (title), then `p.az-cp__method-label` with the text `No checkout: ` followed by `<strong>{label}</strong>`, then a `ul` with classes `az-cp__list az-cp__list--compact` and one `li` per point.
+    - `installments`: `<InstallmentExample totalMinor={block.totalMinor} count={block.count} />`.
+    - `links`: `ul.az-cp__cards` > `li` (key: href) > next/link `Link href={item.href} className="az-cp__card"` > `span.az-cp__card-title` + `span.az-cp__card-body`.
+    - `faq`: `div.az-cp__faq` with, per item, a closed `details.az-cp__faq-item`. It holds:
+      - `summary.az-cp__faq-question` > `<span>{question}</span>` + a chevron.
+      - `div.az-cp__faq-answer` with one `p` per answer.
+
+      The chevron is an `svg` with `className="az-cp__faq-chevron"`, `viewBox="0 0 16 16"`, 14×14, `aria-hidden="true"`, `fill="none"`, `stroke="currentColor"` and `strokeWidth="2"`. It holds one path `d="m4 6 4 4 4-4"` with round caps and joins.
+    - `empty`: `div.az-cp__empty` with `role="status"` > `span.az-cp__empty-icon` > `<CustomerIcon name="recalls" size={36} />`, then a `div` with `p.az-cp__empty-title` and `p.az-cp__empty-body`.
+    - `slot`: `slots[block.name]`, or `null` when absent.
+
+    A `summary`'s text must be exactly the question.
+
+sf.features.customer-pages.customer-blocks.InstallmentExample:
+  description: |
+    Table with a worked no-interest installment example: `totalMinor` split into `count` parts with the product page's `installmentPlan` rule.
+
+    Take `plan = installmentPlan(totalMinor, count)`, which returns `{ count, eachMinor, lastMinor, totalMinor }` (each part rounded down; the last one absorbs the rest). Format amounts with `formatCartMoney(minor)` (BRL).
+    Render `table.az-cp__installments` with:
+    - `caption`: `Exemplo ilustrativo: {total} em {count}x sem juros`.
+    - `tbody`, with three rows of `th scope="row"` + `td`:
+      1. Header `Parcelas 1 a {count - 1}` when `count > 2`, otherwise `Parcela 1`. Cell `{each} cada`.
+      2. Header `Parcela {count}`. Cell `{last}`.
+      3. On `tr.az-cp__installments-total`: header `Total`, cell `{total}`.
+
+    For example, `totalMinor` 100000 with `count` 6 gives the rows `Parcelas 1 a 5` / `R$ 166,66 cada`, `Parcela 6` / `R$ 166,70` and `Total` / `R$ 1.000,00`. The currency formatter puts a non-breaking space after `R$`.
+
+sf.features.customer-pages.customer-icons.CustomerIcon:
+  description: |
+    Decorative line icon for the customer pages, on a 40×40 grid, drawn from the provided `PATHS[name]` shapes.
+
+    Render an `svg` with these attributes:
+    - `viewBox="0 0 40 40"`; `width` and `height` both `size` (default 40).
+    - `aria-hidden="true"`, `focusable="false"`.
+    - `fill="none"`, `stroke="currentColor"`, `strokeWidth="2"`, `strokeLinecap="round"`, `strokeLinejoin="round"`.
+
+    Its only child is `PATHS[name]`, a ready-made JSX fragment.
+
+sf.features.customer-pages.customer-page-content.customerPageMetadata:
+  description: |
+    Next.js metadata for a customer page: the title `<page.title> | Amazon.com.br`, and the page's `lead` as the description.
+
+    Take `page = CUSTOMER_PAGES[key]` and return exactly `{ title, description }`, with no other keys:
+    - `title`: `page.title + ' | Amazon.com.br'`.
+    - `description`: `page.lead`. Use `lead`, not `summary`.
+  examples:
+    - 'customerPageMetadata(''shipping'').title == ''Frete e prazo de entrega | Amazon.com.br'''
+    - 'customerPageMetadata(''returns'').description == CUSTOMER_PAGES.returns.lead'
+
+sf.features.customer-pages.customer-page.CustomerPageLayout:
+  description: |
+    Full customer help page: Amazon header, customer-service bar, article and Amazon footer, inside a wrapper with the help font.
+
+    Render a `div` with `id="top"` whose `className` is `amazon-customer-page`, a space, then `customerFont.variable`. It contains, in order:
+    - `<AmazonHeader />` (no props).
+    - `<CustomerServiceBar currentHref={page.href} />`.
+    - `<CustomerArticle page={page} slots={slots} />`.
+    - `<AmazonFooter />`.
+
+sf.features.customer-pages.payment-transactions.PaymentTransactions:
+  description: |
+    Payment-methods panel with the visitor's five most recent orders (payment method and total), or a login, error or empty message.
+
+    Check in this order:
+    1. `!signedIn` (whatever `orders` is): `div.az-cp__panel` containing:
+       - `p.az-cp__panel-text` with the text `Faça login para ver a forma de pagamento e o total dos seus pedidos.`
+       - next/link `Link href={LOGIN_HREF} className="az-cp__button"` with the text `Fazer login`. `LOGIN_HREF` is `/login?next=%2Fpayment-methods`.
+    2. `orders === null` (the API could not be reached): `div.az-cp__panel` > `p.az-cp__panel-text` with `role="alert"` and the text `Não foi possível carregar suas transações agora. Tente novamente em instantes.`
+    3. `orders` is empty: `div.az-cp__panel` > `p.az-cp__panel-text` with the text `Você ainda não fez pedidos. A forma de pagamento e o total de cada pedido aparecem aqui depois da primeira compra.` Render no list.
+    4. Otherwise, sort a copy of `orders` with the most recent first (`b.placedAt.localeCompare(a.placedAt)`), without mutating the input. Keep the first `TRANSACTIONS_LIMIT` (5). Render a `div` with classes `az-cp__panel az-cp__panel--flush` containing:
+       - `<h3 className="az-cp__panel-title" id="az-cp-transactions">Transações recentes</h3>`.
+       - `ul.az-cp__transactions` with `aria-labelledby="az-cp-transactions"` and one `li.az-cp__transaction` per order (key `id`). Each item holds:
+         - `span.az-cp__transaction-main` > a `Link` with `className="az-cp__link"`, whose href is `/orders/` followed by `encodeURIComponent(order.id)` and whose text is `Pedido nº {orderNumber}`. After it, `span.az-cp__transaction-date` with `formatOrderDate(order.placedAt)`.
+         - `span.az-cp__transaction-method` with `paymentLabel(order)`. For example: `Pix simulado`, or `Cartão fictício · Visa final 4242`.
+         - `strong.az-cp__transaction-total` with `formatCartMoney(order.totalMinor, order.currency)`.
+       - `p.az-cp__panel-footer` > `Link href="/orders" className="az-cp__link"` with the text `Ver todos os pedidos`.
+
+# ---------------------------------------------------------------- legal
+
+sf.features.legal.legal-article.Rich:
+  description: |
+    Render legal rich text: a plain string as is; in an array, strings render as text, `#anchor` links as plain `<a>` and other links as next/link.
+
+    For a string, return it in a fragment. For an array, render each part in order, keyed by index:
+    - A string renders as text (`Fragment`).
+    - A `{ text, href }` part whose `href` starts with `#` renders as `<a href={href} className="az-legal__link">{text}</a>`.
+    - Any other `{ text, href }` part renders as `<Link href={href} className="az-legal__link">{text}</Link>`.
+
+    Add no wrapper element and no extra spaces.
+
+sf.features.legal.legal-article.LegalArticle:
+  description: |
+    Legal help article (privacy notice, conditions of use): 'Políticas legais' sidebar, help search, breadcrumb, title, intro, table of contents and sections.
+
+    Render `main.az-legal` containing `p.az-legal__page-title` with the text `Ajuda e Serviço de atendimento ao cliente`, then `div.az-legal__layout` with the sidebar and the content.
+
+    Sidebar: `aside.az-legal__aside` containing:
+    - next/link `Link href="/help" className="az-legal__aside-back"` > `<span aria-hidden="true">‹</span>` followed by the text ` Todos os tópicos da Ajuda`.
+    - `nav.az-legal__aside-nav` with `aria-labelledby="az-legal-aside-title"` > `h2#az-legal-aside-title.az-legal__aside-title` (text `Políticas legais`) and a `ul`. The list has one `li` per `LEGAL_POLICIES` entry (key: title):
+      - With `href`: `Link href className="az-legal__aside-link"`, with `aria-current="page"` only when `href === doc.href`.
+      - Without `href`: `<span className="az-legal__aside-link">{title}</span>` (not a link).
+
+    Content: `div.az-legal__content` containing, in order:
+    1. `<LegalSearch />`.
+    2. `nav.az-legal__crumbs` with `aria-label="Trilha de navegação"` > `ol` > one `li` per crumb > `Link href="/help"` with the crumb text.
+    3. `article.az-legal__article` with `aria-labelledby="az-legal-title"`, containing:
+       - `header.az-legal__head` > `h1#az-legal-title.az-legal__title` (`doc.title`), plus `p.az-legal__updated` (`doc.updatedAt`) only when it is set.
+       - One `p.az-legal__text` per intro paragraph.
+       - `nav.az-legal__toc` with `aria-label="Nesta página"` > `ul` > one `li` per section > plain `<a href="#{section.id}">{section.title}</a>`. No visible heading.
+       - Per section: `section` with `id={section.id}`, class `az-legal__section` and `aria-labelledby="{id}-title"` > `h2#{id}-title.az-legal__section-title`, then its blocks (key: index).
+
+    Blocks:
+    - `text`: `p.az-legal__text` containing `<strong>{lead}</strong>` when there is a lead, then one space, then the body.
+    - `subheading`: `<h3 id={block.id} className="az-legal__subheading">{title}</h3>`. `id` is left out when undefined.
+    - `list`: `ul.az-legal__list` > per item an `li` with the same lead, space and body pattern.
+
+    All rich text goes through `Rich`. Tests check:
+    - The policies nav contains exactly two links, and its current link is `doc.href`.
+    - The table-of-contents hrefs are `#{id}` for every section, in order.
+
+sf.features.legal.legal-page.legalPageMetadata:
+  description: |
+    Next.js metadata for a legal document: the title `<doc.title> | Amazon.com.br` and `doc.summary` as the description.
+
+    Return exactly `{ title, description }`, with no other keys:
+    - `title`: `doc.title + ' | Amazon.com.br'`.
+    - `description`: `doc.summary`.
+  examples:
+    - 'legalPageMetadata(PRIVACY_NOTICE) == { title: ''Notificação de Privacidade da Amazon | Amazon.com.br'', description: PRIVACY_NOTICE.summary }'
+
+sf.features.legal.legal-page.LegalPageLayout:
+  description: |
+    Full legal page: Amazon header, the legal article for `doc`, and the Amazon footer, inside a wrapper with the help font.
+
+    Render a `div` with `id="top"` whose `className` is `amazon-legal-page`, a space, then `legalFont.variable`. It contains `<AmazonHeader />` (no props), `<LegalArticle doc={doc} />` and `<AmazonFooter />`.
+
+sf.features.legal.legal-search.LegalSearch:
+  description: |
+    Client search box, `Encontrar mais soluções`, that lists up to six matching help-library topics as the visitor types.
+
+    State and derived values:
+    - `query` state, initially `''`, and `const id = useId()`.
+    - `searching` is `query.trim().length > 0`.
+    - `results` is `searchHelpTopics(query).slice(0, MAX_RESULTS)` when searching, otherwise `[]`. Pass the untrimmed `query`.
+
+    Render `div.az-legal__search` containing:
+    - `form` with `role="search"` and an `onSubmit` that only calls `event.preventDefault()`. Inside:
+      - A `label` with `className="az-legal__search-label"` and the text `Encontrar mais soluções`. Its `htmlFor` is the input id: `id + '-q'`.
+      - `div.az-legal__search-box` > the search icon, then an `input` with that id, `type="search"`, `value={query}` and `autoComplete="off"`. Its `onChange` sets `query` to `event.target.value`.
+    - Only when searching: `div.az-legal__search-results` with `aria-live="polite"`, containing:
+      - With results: `ul` with `aria-label="Resultados da pesquisa"` > one `li` per card (key: title) > next/link `Link href={card.href}` with `card.title`.
+      - Without results: a `p` with the text `Nenhum resultado para “{query.trim()}”. ` (curly quotes U+201C and U+201D), followed by `Link href="/help"` with the text `Ver todos os tópicos`.
+
+    The search icon is an `svg` with these attributes and children:
+    - `className="az-legal__search-icon"`, `viewBox="0 0 24 24"`, 18×18, `aria-hidden="true"`.
+    - `fill="none"`, `stroke="currentColor"`, `strokeWidth="2.6"`.
+    - A `circle` (cx 10.5, cy 10.5, r 6.5), then a path `d="m15.5 15.5 5 5"` with `strokeLinecap="round"`.
+
+# ---------------------------------------------------------------- sell
+
+sf.features.sell.sell-content.SELL_LINKS:
+  description: |
+    External destination URLs (strings): `signUp`, `terms`, `story`, `moreStories`, `rewards`, `fba`, `sellWithAmazon`, `sellingPlans`, `categories`, `sellerCentral`.
+
+sf.features.sell.sell-landing.SellLanding:
+  description: |
+    Body of the 'Venda na Amazon' landing page: hero, stats, success story, benefit cards, FAQ and a sign-up CTA. Every link opens in a new tab.
+
+    Every link is a plain `<a>` (not next/link) with `{...external}`, which is `target="_blank" rel="noopener noreferrer"`. Images use next/image `Image`. Render `main.az-sell` containing, in order:
+
+    1. `section.az-sell__band` with `aria-labelledby="az-sell-title"` > `div` with classes `az-sell__inner az-sell__hero`, holding two `div`s:
+       - `div.az-sell__hero-copy`:
+         - `h1#az-sell-title.az-sell__hero-title` with three lines: `Venda até `, `R$ 500 mil com ` and `comissão ZERO*`, separated by `<br />`. Keep the trailing spaces, so the text is `Venda até R$ 500 mil com comissão ZERO*`.
+         - `a href={SELL_LINKS.signUp}` with classes `az-sell__button az-sell__button--primary` and the text `Comece a vender`.
+         - `p.az-sell__fineprint` with the text `*Campanha válida para novas contas CNPJ, com coleta no estado de São Paulo e usando qualquer logística da Amazon.`, a space, then `a href={SELL_LINKS.terms}` with the text `Consulte os Termos e Condições`.
+       - `div.az-sell__hero-media` > `Image` with `src="/images/sell/hero-seller.png"`, `alt="Tatá Werneck segurando caixa de entrega da Amazon com logo sorriso em fundo laranja"`, `width={505}`, `height={752}`, `priority` and `sizes="(max-width: 760px) 90vw, 400px"`.
+    2. `section` with classes `az-sell__inner az-sell__stats-block` and `aria-label="A Amazon em números"` > a stat row of `HERO_STATS`, then `p.az-sell__stats-source` with the text `*Dados internos Amazon, 2022`.
+    3. `section` with classes `az-sell__inner az-sell__story` and `aria-label="História de sucesso"`, containing:
+       - `blockquote.az-sell__quote` > the quote icon, a `p` with the text `Poder falar “Estou na Amazon” significa que este produto é confiável. Então, as pessoas começaram a comprar muito mais da gente através do site da Amazon do que do nosso próprio site.`, then `footer` > `cite` > `<strong>Flavia e Fabiana</strong>` + `<span>Co-fundadoras, Tons de Preta</span>`.
+       - `a href={SELL_LINKS.story}` with classes `az-sell__button az-sell__button--outline` and the text `Conheça sua história `, then the play icon.
+       - `a href={SELL_LINKS.moreStories}` with `className="az-sell__more-stories"` and the text `Veja mais histórias de sucesso `, then the arrow icon.
+    4. `section` with classes `az-sell__inner az-sell__stats-block az-sell__stats-block--story` and `aria-label="Vendas na Amazon"` > a stat row of `STORY_STATS`.
+    5. `section` with classes `az-sell__band az-sell__benefits` and `aria-labelledby="az-sell-benefits-title"` > `div.az-sell__inner`, holding:
+       - `h2#az-sell-benefits-title.az-sell__section-title` with the text `Precisa de mais motivos para vender online com a Amazon?`.
+       - `div.az-sell__cards` with one `article.az-sell__card` per `BENEFIT_CARDS` entry (key: title). Each card holds:
+         - `div.az-sell__card-media` > `Image` with `src` and `alt` from `card.image`, `fill` and `sizes="(max-width: 900px) 92vw, 380px"`.
+         - `div.az-sell__card-body`, holding:
+           - `h3.az-sell__card-title`.
+           - The items, in an element with `className="az-sell__card-text"`: a `ul` with one `li` per item when `card.bullets`, otherwise a `div` with one `p` per item.
+           - `a href={card.href}` with classes `az-sell__button az-sell__button--dark` and the text `Saiba mais`.
+           - `p.az-sell__card-terms` with the text `Aplicam-se termos e condições`.
+    6. `section` with classes `az-sell__inner az-sell__faq` and `aria-labelledby="az-sell-faq-title"`, holding:
+       - `h2#az-sell-faq-title.az-sell__section-title` with the text `Perguntas Frequentes`.
+       - `div.az-sell__faq-list` with, per `FAQ` entry (key: question), a closed `details.az-sell__faq-item`. It holds a `summary` (no class) > `<span>{question}</span>` + the plus icon, then `div.az-sell__faq-answer` with one `p` per answer node.
+    7. `section` with classes `az-sell__inner az-sell__cta` and `aria-labelledby="az-sell-cta-title"`, holding:
+       - `div.az-sell__cta-copy`, containing:
+         - `h2#az-sell-cta-title.az-sell__cta-title` with `Mensalidade GRÁTIS `, `<br />`, `por 1 ano!`.
+         - `p.az-sell__cta-text` with the text `Aproveite todos os benefícios de vender na Amazon com ` followed by `<strong>mensalidade GRÁTIS por 12 meses.</strong>`.
+         - `a href={SELL_LINKS.signUp}` with classes `az-sell__button az-sell__button--primary` and the text `Cadastre-se`.
+       - `div.az-sell__cta-media` > `Image` with `src="/images/sell/cta-doorstep.webp"`, `alt="Caixas da Amazon entregues na porta de casa"`, `fill` and `sizes="(max-width: 900px) 92vw, 460px"`.
+
+    Stat row: `ul.az-sell__stats` > one `li.az-sell__stat` per stat (key: value) > `strong.az-sell__stat-value` (value) + `span.az-sell__stat-label` (label).
+
+    Icons are inline `svg`, all with `aria-hidden="true"`:
+    - Quote: `viewBox="0 0 60 48"`, 60×48, `className="az-sell__quote-icon"`. One `path` with `fill="currentColor"` that draws two opening quotation marks.
+    - Play: `viewBox="0 0 20 20"`, 18×18. A `circle` (cx 10, cy 10, r 8.2, `fill="none"`, `stroke="currentColor"`, `strokeWidth="1.8"`) and a path `d="M8 6.4v7.2l5.6-3.6Z"` with `fill="currentColor"`.
+    - Arrow: `viewBox="0 0 20 20"`, 16×16. One path `d="M3 10h13m-5-5 5 5-5 5"` with `fill="none"`, `stroke="currentColor"`, `strokeWidth="1.8"`, and round caps and joins.
+    - Plus: `viewBox="0 0 20 20"`, 18×18, `className="az-sell__plus"`. Paths `d="M2 10h16"` and `d="M10 2v16"` (the second with `className="az-sell__plus-v"`), both with `stroke="currentColor"` and `strokeWidth="1.8"`.
+
+    Tests check:
+    - There is one `h1`, then exactly these three `h2`s in order, and the three card titles are the only `h3`s.
+    - The stat values appear in order across both rows.
+    - Every link has `rel="noopener noreferrer"`.
+    - A `summary`'s text is exactly the question.

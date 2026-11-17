@@ -1,0 +1,63 @@
+# Run configuration for a real small model behind an OpenAI-compatible server
+# (Ollama, llama.cpp, vLLM, LM Studio). Copy and change run_name to compare models.
+run_name: qwen2.5-coder-7b
+model:
+  backend: openai
+  base_url: http://localhost:11434/v1
+  model: qwen2.5-coder:7b
+  context_window: 32768
+  max_output_tokens: 2048        # units override this with max_output_tokens (sized from the original)
+  temperature: 0.2
+  exploration_temperature: 0.7
+  timeout_s: 600
+budget:
+  chars_per_token: 3.5
+  safety_margin: 0.9
+  max_error_tokens: 700
+run:
+  samples: 3
+  sampling: lazy
+  max_attempts: 3
+  regression: related
+  max_milestone_repairs: 6       # the API services are verified mainly by the integration milestones
+checks:
+  cwd: "{workspace}"
+  env:
+    APP_ENV: test
+    NEXT_TELEMETRY_DISABLED: "1"
+  inherit_env:                   # what model-written code may see; nothing else is inherited
+    - PATH
+    - PATHEXT
+    - SYSTEMROOT
+    - SYSTEMDRIVE
+    - WINDIR
+    - COMSPEC
+    - OS
+    - TEMP
+    - TMP
+    - TMPDIR
+    - HOME
+    - USERPROFILE
+    - HOMEDRIVE
+    - HOMEPATH
+    - APPDATA
+    - LOCALAPPDATA
+    - PROGRAMDATA
+    - PROGRAMFILES
+    - PROGRAMFILES(X86)
+    - NUMBER_OF_PROCESSORS
+    - PROCESSOR_ARCHITECTURE
+    - USERNAME
+    - USER
+    - LANG
+    - LC_*
+    - TZ
+    - PNPM_HOME
+    - DATABASE_URL               # a disposable local PostgreSQL with trust auth: no password in the URL
+  preflight:
+    - name: setup
+      command: [node, tools/harness-test.mjs, --setup]
+      timeout_s: 1800
+  tests:
+    command: [node, tools/harness-test.mjs, "{tests}"]
+    timeout_s: 900

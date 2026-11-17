@@ -1,0 +1,8 @@
+{
+  "name": "amazon-mvp-spec-bundle",
+  "private": true,
+  "description": "Tooling for the harness and the planner tools: the TypeScript parser only. The rebuilt project has its own package.json in spec/scaffold/.",
+  "devDependencies": {
+    "typescript": "5.5.4"
+  }
+}

@@ -1,0 +1,617 @@
+# Descriptions for group sf-account-auth: apps/storefront/src/features/account, auth, account-issues.
+
+sf.features.account-issues.account-issues.AccountIssues:
+  description: |
+    The "/account-issues" help page: a "Selecione um problema" picker whose chosen option reveals that problem's "Você sabia?" answer.
+    State: `selectedId` (string, starts `''`); `selected = ACCOUNT_ISSUES.find((i) => i.id === selectedId)`.
+
+    Markup, in order:
+    - `<main className="az-issues">`, then `<h1 className="az-issues__title">Problemas na conta e de login</h1>`.
+    - Step box 1, title `Em que podemos ajudar?`, whose body is `<div className="az-issues__field">` with
+      `<label className="az-issues__label" htmlFor="account-issue">Selecione um problema</label>` and
+      `<select id="account-issue" className="az-issues__select" value={selectedId}>`; `onChange` sets `selectedId` to the
+      select's value. Options: first `value=""` with the text `< Selecione >` (write it as `&lt; Selecione &gt;` in JSX),
+      then one `<option value={issue.id}>{issue.label}</option>` per `ACCOUNT_ISSUES` entry, in array order.
+    - Only when `selected` exists: step box 2, title `Você sabia?`, whose body is
+      `<div className="az-issues__answer" aria-live="polite">` with one block per `selected.blocks` entry, in order.
+
+    Step box (write a private helper; number, title, children): `<section className="az-issues__step" aria-labelledby={id}>`
+    where `id` comes from `useId()`; inside, `<header className="az-issues__step-header">` holding
+    `<span className="az-issues__step-number" aria-hidden="true">{number}</span>` and
+    `<h2 className="az-issues__step-title" id={id}>{title}</h2>`; then `<div className="az-issues__step-body">{children}</div>`.
+
+    Blocks: `kind: 'text'` renders `<p>` with the rich text of `body`; `kind: 'steps'` renders
+    `<ol className="az-issues__steps">` with one `<li>` (rich text) per item. Rich text (`IssueText`): a string renders as
+    plain text; an array renders each part in order, strings as plain text (use `Fragment` keys) and `{ text, href }` parts as
+    `<Link href={href} className="az-issues__link">{text}</Link>`.
+    Do not render any other list or list item: tests read every `listitem` on the page and expect only the steps.
+
+sf.features.account.account-client.AccountRequestError:
+  description: |
+    Error thrown by `accountClient`, carrying the HTTP status (0 for a network failure) and the API error code.
+    The constructor passes `message` to `super(message)` and keeps `status` and `code` as public readonly properties.
+    It does not change `name`.
+
+sf.features.account.account-client.accountClient:
+  description: |
+    Browser client for the account pages: addresses, name/e-mail/password changes and lists, with pt-BR error messages.
+    Every method calls one private `request<T>(path, method = 'GET', body?)` helper:
+    - `fetch(path, { method, credentials: 'same-origin', cache: 'no-store', headers, body })`. Only when `body` is given,
+      `headers` is `{ 'content-type': 'application/json' }` and `body` is `JSON.stringify(body)`; otherwise both are undefined.
+    - If `fetch` throws: throw `new AccountRequestError('Não foi possível conectar. Tente novamente.', 0, 'NETWORK')`.
+    - Status 204: resolve `undefined` without reading the body.
+    - Otherwise read `response.json()`, using `null` if parsing fails. If `response.ok`, resolve that payload.
+    - If not ok: `error = isApiErrorBody(payload) ? payload.error : null`. Throw
+      `new AccountRequestError(message, response.status, error?.code ?? 'UNKNOWN')`. Pick `message` in this order:
+      1. code `ErrorCode.AUTH_INVALID_CREDENTIALS`: `Sua senha atual está incorreta.`
+      2. code `ErrorCode.AUTH_EMAIL_ALREADY_REGISTERED`: `Já existe uma conta com este e-mail.`
+      3. status 401: `Sua sessão expirou. Entre novamente para continuar.`
+      4. status 404: `Este item não existe mais. Atualize a página.`
+      5. `error.details` non-empty: `Confira os campos e tente novamente.`
+      6. code `LIST_LIMIT_EXCEEDED` or `LIST_DEFAULT_PROTECTED`: the API's `error.message`.
+      7. anything else: `Não foi possível concluir a solicitação.`
+
+    Methods (ids and product ids are `encodeURIComponent`-encoded in paths; `A = CHECKOUT_ROUTES.addresses`,
+    `L = LIST_ROUTES.lists`):
+    - `addresses()`: GET `A`, resolves `AccountAddress[]`.
+    - `updateAddress(id, data)`: PUT `A/{id}` with body `data`, resolves `AccountAddress`.
+    - `deleteAddress(id)`: DELETE `A/{id}`, resolves `AccountAddress[]` (the remaining list).
+    - `setDefaultAddress(id)`: POST `A/{id}/default` with no body, resolves `AccountAddress[]`.
+    - `updateName(displayName)`: PATCH `ACCOUNT_ROUTES.profile` with `{ displayName }`, resolves `UserProfile`.
+    - `changeEmail(email, currentPassword)`: POST `ACCOUNT_ROUTES.email` with `{ email, currentPassword }`, resolves `UserProfile`.
+    - `changePassword(currentPassword, newPassword)`: POST `ACCOUNT_ROUTES.password` with `{ currentPassword, newPassword }`,
+      resolves `ChangePasswordResponse`.
+    - `lists()`: GET `L`, resolves `ListSummary[]`. `list(id)`: GET `L/{id}`, resolves `ListDetails`.
+    - `createList(name)`: POST `L` with `{ name }`, resolves `ListSummary`.
+    - `renameList(id, name)`: PATCH `L/{id}` with `{ name }`, resolves `ListSummary`.
+    - `deleteList(id)`: DELETE `L/{id}`, resolves `void`.
+    - `addToList(id, productId)`: POST `L/{id}/items` with `{ productId }`, resolves `ListDetails`.
+    - `removeFromList(id, productId)`: DELETE `L/{id}/items/{productId}`, resolves `ListDetails`.
+    For example, `setDefaultAddress('x y')` POSTs to `/api/v1/addresses/x%20y/default`, and `removeFromList('l1', 'p/1')`
+    DELETEs `/api/v1/lists/l1/items/p%2F1`.
+  notes: |
+    Give each method its return type (e.g. `request<AccountAddress[]>(...)`): the pages type their state from it.
+
+sf.features.account.account-presentation.listHref:
+  description: |
+    Storefront URL of one list on "Suas listas": `/lists?list=` followed by the `encodeURIComponent`-encoded id.
+  examples:
+    - 'listHref("a b") == "/lists?list=a%20b"'
+    - 'listHref("x/y?z") == "/lists?list=x%2Fy%3Fz"'
+
+sf.features.account.account-presentation.stockLabel:
+  description: |
+    Stock line for a saved product, worded like the product page, with a tone for styling (`ok`, `low` or `out`).
+    Checks, in order:
+    1. `!product.active`: `{ text: 'Indisponível no momento', tone: 'out' }`.
+    2. `!product.inStock`: `{ text: 'Fora de estoque', tone: 'out' }`.
+    3. `product.availableQuantity <= LOW_STOCK` (5): `{ text: 'Apenas N em estoque', tone: 'low' }`, where N is the quantity.
+    4. Otherwise: `{ text: 'Em estoque', tone: 'ok' }`.
+  examples:
+    - 'stockLabel({ ...item, active: true, inStock: true, availableQuantity: 5 }) == { text: "Apenas 5 em estoque", tone: "low" }'
+    - 'stockLabel({ ...item, active: true, inStock: true, availableQuantity: 6 }) == { text: "Em estoque", tone: "ok" }'
+    - 'stockLabel({ ...item, active: false, inStock: false, availableQuantity: 0 }) == { text: "Indisponível no momento", tone: "out" }'
+
+sf.features.account.account-server.get:
+  description: |
+    Server-side GET to the API for the account pages, forwarding the browser's cookies; resolves the raw `Response`, or `null` if unreachable.
+    Read `getConfig()` and fetch `${config.api.internalBaseUrl}${config.api.publicBasePath}${path}`, where `path` is
+    relative to the API prefix (e.g. `/addresses`). Pass `headers: { cookie: cookies().toString() }` (from `next/headers`)
+    and `cache: 'no-store'`. Return the response as is, including non-ok statuses. If `fetch` throws, return `null`.
+    The function is private to the module (not exported).
+
+sf.features.account.account-server.fetchAddresses:
+  description: |
+    The signed-in user's saved addresses, read on the server; `null` when the API is unavailable or answers with an error.
+    Define it as `export const fetchAddresses = cache(async () => ...)` with React's `cache`, so that the header and
+    the "Seus endereços" page share one read per request. Call `get('/addresses')`. If the response exists and is ok,
+    resolve `await response.json()` as `AccountAddress[]`; otherwise resolve `null`.
+
+sf.features.account.account-server.fetchPaymentCards:
+  description: |
+    The signed-in user's saved payment cards, read on the server; `null` when the API is unavailable or answers with an error.
+    Call `get('/payment-cards')`. If the response exists and is ok, return `await response.json()` as `SavedPaymentCard[]`;
+    otherwise return `null`.
+
+sf.features.account.account-server.fetchLists:
+  description: |
+    The signed-in user's lists, read on the server (the API creates the default list on first use); `null` on any failure.
+    Call `get('/lists')`. If the response exists and is ok, return `await response.json()` as `ListSummary[]`;
+    otherwise return `null`.
+
+sf.features.account.account-server.fetchList:
+  description: |
+    One list with its items, read on the server: the details, `'not-found'` for a missing or foreign list, or `null` on failure.
+    Call `get(`/lists/${encodeURIComponent(id)}`)`. If the status is 404 or 400, return `'not-found'` (this also covers
+    another user's list and malformed ids). Otherwise, if the response exists and is ok, return `await response.json()` as
+    `ListDetails`. Otherwise, including when `get` returned `null`, return `null`.
+
+sf.features.account.account-shell.requireAccountSession:
+  description: |
+    Returns the current session for an account page, or redirects guests to login with `next` set to that page.
+    `const session = await getServerSession()`. If it is `null`, call
+    `redirect(`/login?next=${encodeURIComponent(path)}`)` (from `next/navigation`; it throws). Otherwise return the session.
+    For example, a guest on `/gift-cards` is redirected to `/login?next=%2Fgift-cards`.
+
+sf.features.account.account-shell.AccountShell:
+  description: |
+    Amazon account-page frame: header, "Sua conta › title" breadcrumb, title row with optional actions, optional lead, children, footer.
+    Markup, in order:
+    - `<div className="amazon-account-page az-acct">`, starting with `<AmazonHeader />`.
+    - `<main className="az-acct-main">`. When `wide` is true, the class is `az-acct-main az-acct-main--wide`.
+      Inside it:
+      - `<nav className="az-acct-crumbs" aria-label="Trilha de navegação">`. It holds an `<ol>` with two items:
+        `<li><Link href="/account">Sua conta</Link></li>` and `<li aria-current="page">{title}</li>`.
+      - `<div className="az-acct-top">` holding `<h1 className="az-acct-title">{title}</h1>` followed by `{actions}`.
+      - Only when `lead` is truthy: `<p className="az-acct-lead">{lead}</p>`.
+      - `{children}`.
+    - After `</main>`: `<AmazonFooter />`.
+    It is a server component with no state.
+
+sf.features.account.account-shell.AcademicNotice:
+  description: |
+    Info note box for account features this academic store does not operate; shows an "i" icon next to its children.
+    Renders `<div className="az-acct-alert" role="note">`. First child is an inline
+    `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">` containing
+    `<circle cx="12" cy="12" r="10" fill="#007185" />` and
+    `<path d="M12 10.5v6M12 7.2v.1" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />`.
+    Second child is `<div>{children}</div>`.
+
+sf.features.account.account-shell.EmptyPanel:
+  description: |
+    A titled box on an account page whose data area is honestly empty: heading, the empty message, and optional extra children.
+    Compute `id = `panel-${heading.toLowerCase().replace(/[^a-z0-9]+/g, '-')}``. For example, `Saldo do vale-presente`
+    gives `panel-saldo-do-vale-presente`, and `Histórico` gives `panel-hist-rico`.
+    Render `<section className="az-acct-box" aria-labelledby={id}>`. Inside it:
+    - `<h2 id={id} className="az-acct-box__heading">{heading}</h2>`.
+    - `<div className="az-acct-box__body">` holding `<p className="az-acct-empty">{message}</p>` followed by `{children}`.
+
+sf.features.account.add-to-list.AddToList:
+  description: |
+    Product-page "Adicionar à lista" split button: the main part saves to the default list, the arrow opens a menu of lists.
+    Guests get a login link.
+    Hooks: `useRouter()`; state `lists: ListSummary[] | null` (null = not loaded), `open`, `busy`, `added: { id, name } | null`,
+    `error` (string); refs for the root `<div>` and the toggle button. Call every hook before the guest return.
+
+    Guest (`!signedIn`): render only `<div className="az-add-to-list"><Link className="az-add-to-list__main" href={loginHref}>Adicionar à lista</Link></div>`.
+    Make no API call.
+
+    Helpers:
+    - `load()`: resolve the cached `lists` if any, else `await accountClient.lists()`. Store the result in `lists` and return it.
+    - `add(pick?)`, in order:
+      1. Set `busy`, clear `error` and `added`, and close the menu.
+      2. The target is `pick`, or else the entry of `await load()` with `isDefault`. If there is none,
+         throw `new Error('Não foi possível encontrar sua lista.')`.
+      3. `await accountClient.addToList(target.id, productId)`. Then set `added = { id: target.id, name: target.name }`
+         and reset `lists` to `null` (the counts changed).
+      - On error: an `AccountRequestError` with status 401 calls `router.push(loginHref)` and stops. Any other error sets
+        `error` to its message (non-Error: `Não foi possível adicionar à lista.`).
+      - Always clear `busy` at the end.
+    - `openMenu()`: if the menu is open, close it. Otherwise clear `error`, `await load()`, then open it. On failure set
+      `error` to the message (non-Error: `Não foi possível carregar suas listas.`).
+    - While the menu is open (an effect on `open`), listen on `document`:
+      - `keydown` Escape closes the menu and focuses the toggle.
+      - `mousedown` outside the root closes it.
+      Remove both listeners in the cleanup.
+
+    Signed-in markup, in order:
+    - `<div className="az-add-to-list" ref={root}>` holding `<div className="az-add-to-list__group">`, which contains two buttons:
+      - The main `<button type="button" className="az-add-to-list__main" disabled={busy}>`. Its text is `Adicionando…` while
+        busy, else `Adicionar à lista`. Clicking calls `add()`.
+      - The toggle `<button type="button" className="az-add-to-list__toggle" aria-label="Escolher uma lista" aria-haspopup="true"
+        aria-expanded={open} aria-controls="add-to-list-menu" disabled={busy}>`. Clicking calls `openMenu()`. It holds a chevron
+        `<svg viewBox="0 0 12 8" width="12" height="8" aria-hidden="true">` with
+        `<path d="m1 1 5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.6" />`.
+    - When `open && lists`: `<ul id="add-to-list-menu" className="az-add-to-list__menu" aria-label="Suas listas">`.
+      - One `<li>` per list, each with a `<button type="button">`. The first one gets `autoFocus`. The button text is the list
+        name, followed by ` (padrão)` when `isDefault`. Clicking calls `add(list)`.
+      - A last `<li><p><Link href="/lists">Gerenciar suas listas</Link></p></li>`.
+    - Always `<p className="az-add-to-list__feedback" role="status">`. When `added` is set, it contains:
+      `Adicionado a <strong>{name}</strong>.`, a space, then `<Link href={listHref(added.id)}>Ver sua lista</Link>`.
+    - When `error` is set: `<p className="az-add-to-list__feedback az-add-to-list__error" role="alert">{error}</p>`.
+
+sf.features.account.addresses-manager.AddressesManager:
+  description: |
+    "Seus endereços" manager: an add tile plus one card per saved address, with edit, delete (confirmed), set-default and delivery instructions.
+    Hooks: `useRouter()`. State:
+    - `addresses` (from `initial`).
+    - `editor: Editor`, starting `{ mode: 'new' }` if `startAdding`, else `null`.
+    - `confirming` (address id or null), `instructing: { id, text } | null`, `busy` (address id or null).
+    - `error` and `status` strings.
+    Refs: the editor `<h2>` and the add tile. When `editor` becomes non-null, an effect focuses the editor heading.
+
+    Helpers:
+    - `fail(reason)`: an `AccountRequestError` with status 401 calls `router.push('/login?next=%2Faddresses')`. Anything else
+      sets `error` to its message (non-Error: `Não foi possível concluir a solicitação.`).
+    - `run(id, work, done)`: set `busy = id`, clear `error` and `status`, then `setAddresses(await work())`, set
+      `status = done`, call `router.refresh()` once (the header's "Enviar para" is server-rendered) and return true.
+      On error call `fail` and return false. Always clear `busy` and `confirming` at the end.
+    - Save instructions: `run(address.id, ...)`, where the work calls `accountClient.updateAddress(address.id, { ...input,
+      deliveryInstructions: text.trim() })`, `input` is the address minus `id` and `isDefault` (PUT replaces the whole address),
+      and the work replaces the matching item by the returned address. `done` is `Instruções de entrega salvas.`.
+      Only on success: clear `instructing` and, in `requestAnimationFrame`, focus the element with id `address-{id}`.
+      On failure the draft stays open with its text, and there is no refresh.
+    - `onSave` of the form (`saved(address)`), in order:
+      1. Remember whether the mode was `'new'`. Clear `editor` and `error`.
+      2. Reload with `setAddresses(await accountClient.addresses())`, set `status` to `Endereço adicionado.` (new) or
+         `Endereço atualizado.`, and call `router.refresh()`. On error call `fail`.
+      3. Then, in `requestAnimationFrame`, focus `address-{saved id}`.
+
+    Markup, in order:
+    1. Always `<div className="az-acct-status" role="status" aria-live="polite">`, containing
+       `<p className="az-acct-success">{status}</p>` when `status` is set.
+    2. When `error` is set: `<p className="az-acct-error" role="alert">{error}</p>`.
+    3. When `editor` is set: `<section className="az-acct-editor" aria-labelledby="address-editor-title">` with
+       `<h2 id="address-editor-title" tabIndex={-1}>`. Its text is `Adicionar um novo endereço` (new) or
+       `Editar seu endereço`. Below it, `<AddressForm key={edit ? address.id : 'new'} initial={edit ? address : undefined}
+       name={name} onSave={saved} onCancel>`. `onCancel` clears `editor` and focuses the add tile in `requestAnimationFrame`.
+    4. `<ul className="az-acct-addresses" aria-label="Endereços salvos">`. Its first `<li>` holds the add tile
+       `<button type="button" className="az-acct-address-add" disabled={Boolean(editor)}>`, containing
+       `<svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true"><path d="M24 6v36M6 24h36" stroke="currentColor" strokeWidth="5" /></svg>`
+       and the text `Adicionar endereço`. Clicking clears `status` and opens `{ mode: 'new' }`.
+       Then one card per address: `<li id="address-{id}" tabIndex={-1}>`.
+       - Class `az-acct-address`, plus ` az-acct-address--default` for the default address.
+       - `aria-label` is `Endereço padrão: ` or `Endereço: `, followed by `{recipient}, {street}, {number}`.
+       Inside the card, in order:
+       - Default only: `<p className="az-acct-address__badge">Endereço padrão:<AmazonLogo className="az-acct-address__logo" /></p>`.
+       - `<div className="az-acct-address__body">` holding an `<address>` with these lines, separated by `<br />`:
+         - `<strong>{recipient}</strong>` followed by `{street} {number}`.
+         - `[complement, neighborhood].filter(Boolean).join(' ')`.
+         - `{city}, {state} {postalCode}`.
+         - `Brasil`.
+         - Only when `phone` is set: `Telefone: +55{phone}`.
+       - Still inside the body, when `instructing?.id` is this address, a
+         `<form className="az-acct-address__instructions-form" aria-label="Instruções de entrega para {recipient}, {street}">`.
+         Its submit calls `preventDefault` and saves. It contains:
+         - `<label htmlFor="instructions-{id}">Instruções de entrega</label>`.
+         - `<textarea id="instructions-{id}" value maxLength={INSTRUCTIONS_MAX} rows={3} autoFocus disabled={busy===id}
+           placeholder="Ex.: deixar com o porteiro, tocar o interfone 710">`. `onChange` updates the text.
+         - `<div className="az-acct-form__actions">` with a submit button `az-acct-button az-acct-button--primary` (text
+           `Salvando…` while busy, else `Salvar`) and a `button` `az-acct-button` `Cancelar` that clears `instructing`.
+           Both are disabled while busy.
+       - Otherwise:
+         - When the address has `deliveryInstructions`:
+           `<p className="az-acct-address__instructions"><strong>Instruções de entrega:</strong> {text}</p>`.
+         - A `<button type="button" className="az-acct-linkbutton">`, disabled when any `busy` or `instructing` is set.
+           Its `aria-label` is `{Editar|Adicionar} instruções de entrega para {recipient}, {street}` and its text is
+           `{Editar|Adicionar} instruções de entrega`. Clicking clears `status` and opens
+           `{ id, text: deliveryInstructions ?? '' }`.
+       - When `confirming` is this address:
+         `<div className="az-acct-address__confirm" role="group" aria-label="Confirmar exclusão">`, containing
+         `<p>Excluir este endereço?</p>` and an `az-acct-form__actions` div.
+         - First the primary button, with `autoFocus`. Its text is `Excluindo…` while busy, else `Sim, excluir`. It runs
+           `accountClient.deleteAddress(id)` with done `Endereço excluído.`; the server's list replaces the state.
+         - Then `Cancelar`, which clears `confirming`.
+       - Otherwise `<div className="az-acct-address__actions">` with `az-acct-linkbutton` buttons, all disabled while any
+         `busy` is set:
+         - `Alterar` (aria-label `Alterar endereço de {recipient}, {street}`). It clears `status` and opens
+           `{ mode: 'edit', address }`.
+         - `Excluir` (aria-label `Excluir endereço de {recipient}, {street}`). It sets `confirming`.
+         - Non-default only: aria-label `Definir como padrão o endereço de {recipient}, {street}`, text `Salvando…` while
+           busy, else `Definir como padrão`. It runs `accountClient.setDefaultAddress(id)` with done `Endereço padrão atualizado.`.
+    5. When `addresses` is empty, after the list: `<p className="az-acct-muted az-acct-note">Você ainda não tem endereços salvos. Os endereços adicionados aqui aparecem no checkout.</p>`.
+
+sf.features.account.lists-view.ListsView:
+  description: |
+    "Suas listas" view: list navigation on the left; on the right the selected list, with create/rename/delete and per-item cart and remove actions.
+    Hooks: `useRouter()` and `cart = useCart()`. From the cart this uses:
+    - `status` (`'ready'` when usable) and `pending`.
+    - `add(productId, quantity)`, which resolves true on success.
+    - `error` (string or null).
+    State:
+    - `list` (from `initial`) and `mode: 'create' | 'rename' | 'delete' | null`.
+    - `busy`, `error`, `status`.
+    - `itemBusy` (product id or null) and `cartAdded` (boolean).
+
+    Helpers:
+    - `go(href)`: `router.push(href)`, then `router.refresh()`.
+    - `act(work)`: set `busy`, clear `error`, `cartAdded` and `status`, then `await work()`.
+      - An `AccountRequestError` with status 401 calls `go(`/login?next=${encodeURIComponent(listHref(list.id))}`)`.
+      - Other errors set `error` to the message (non-Error: `Não foi possível concluir.`).
+      - Always clear `busy` at the end.
+    - The form name: `preventDefault`, then `new FormData(form).get('name')` trimmed.
+    - `summaries`: `lists`, where the entry with `list.id` takes the current `list.name` and `list.itemCount`.
+
+    Markup:
+    - `<div className="az-acct-lists">`.
+    - `<nav className="az-acct-lists__nav" aria-label="Suas listas"><ul>`, with one `<li>` per summary holding
+      `<Link href={listHref(id)} aria-current={selected ? 'page' : undefined}>`. The link contains `<strong>{name}</strong>` and
+      `<span>`. The span text is `Padrão · ` (default list only), then `{n} item` or `{n} itens` (singular when n is 1),
+      then ` · Privada`.
+    - `<section aria-labelledby="list-title">` containing, in order:
+      1. Always `<div className="az-acct-status" role="status" aria-live="polite">`. When `status` is set it holds
+         `<p className="az-acct-success">{status}</p>`; when `cartAdded` is also set, the `<p>` continues with a space and
+         `<Link href="/cart">Ver carrinho</Link>`.
+      2. When `error` is set: `<p className="az-acct-error" role="alert">`.
+      3. `<div className="az-acct-list-head">`, holding `<h2 id="list-title">{list.name}</h2>` and
+         `<div className="az-acct-list-head__actions">`. Each of its buttons toggles its own `mode` and has
+         `aria-expanded={mode === thatMode}`:
+         - `<button className="az-acct-button">Criar uma lista</button>`, disabled when busy or
+           `lists.length >= MAX_LISTS_PER_USER`.
+         - `az-acct-linkbutton` `Renomear lista`.
+         - Non-default lists only: `az-acct-linkbutton` `Excluir lista`.
+         The last two are disabled when busy.
+      4. Mode panels:
+         - `create`: `<form className="az-acct-inline-form" aria-label="Criar uma lista">`.
+           - `<label>Nome da lista<input name="name" required maxLength={LIST_NAME_MAX_LENGTH} autoFocus disabled={busy} /></label>`.
+           - A submit button `az-acct-button az-acct-button--primary` `Criar lista`.
+           - An `az-acct-button` `Cancelar` that sets `mode` to null.
+           Submit runs `act`: `createList(name)`, then `go(listHref(created.id))`.
+         - `rename`: the same form with `aria-label="Renomear lista"`, label `Novo nome`, `defaultValue={list.name}` and submit
+           `Salvar`. Submit runs `act`: `renameList(list.id, name)`, then `setList({ ...list, name: renamed.name })`, close the
+           mode, set status `Lista renomeada.` and call `router.refresh()`.
+         - `delete`: `<div className="az-acct-inline-form" role="group" aria-label="Confirmar exclusão da lista">`.
+           - `<p className="az-acct-muted">Excluir a lista “{name}” e todos os seus itens? Esta ação não pode ser desfeita.</p>`.
+           - A primary `autoFocus` button, with text `Excluindo…` while busy, else `Sim, excluir`. It runs `act`:
+             `deleteList(list.id)`, then `go('/lists')`.
+           - `Cancelar`.
+         All panel controls are disabled while busy.
+      5. Items. When there are none:
+         `<div className="az-acct-list-empty"><p className="az-acct-empty">Não há itens nesta lista.</p><p className="az-acct-muted">Use o botão “Adicionar à lista” na página de um produto para salvá-lo aqui.</p></div>`.
+         Otherwise `<ul className="az-acct-items" aria-label="Itens de {list.name}">`, with one `<li className="az-acct-item">` per
+         item (key `productId`), where `href = /products/{encodeURIComponent(slug)}` and `p = productPresentation(product)`.
+         Each item, in order:
+         - `<Link href className="az-acct-item__image" tabIndex={-1} aria-hidden="true"><ProductImage image={p.images[0]} glyph={p.glyph} /></Link>`.
+         - A `<div>` holding:
+           - `<h3><Link href>{name}</Link></h3>`.
+           - `<p className="az-acct-item__price">{formatCartMoney(priceMinor, currency)}</p>`.
+           - `<p className="az-acct-item__stock az-acct-item__stock--{tone}">{text}</p>`, from `stockLabel(product)`.
+           - `<p className="az-acct-muted">Item adicionado em {addedOn.format(new Date(addedAt))}</p>`.
+         - `<div className="az-acct-item__actions">` with two buttons:
+           - Cart: `az-acct-button az-acct-button--primary`, `aria-label="Adicionar ao carrinho: {name}"`. It is enabled only
+             when `inStock`, the cart status is `'ready'`, `!cart.pending` and `itemBusy` is null. Its text is `Adicionando…`
+             while `itemBusy` is this item and `cart.pending`, else `Adicionar ao carrinho`. Clicking: set `itemBusy`, clear
+             `status` and `error`, `ok = await cart.add(productId, 1)`, clear `itemBusy`, set `cartAdded = ok`. If ok, set
+             status `“{name}” foi adicionado ao carrinho.`.
+           - Remove: `az-acct-button`, text `Excluir`, `aria-label="Excluir da lista: {name}"`, disabled when `itemBusy` is set
+             or busy. Clicking sets `itemBusy`, then runs `act`: `setList(await removeFromList(list.id, productId))` and status
+             `“{name}” foi excluído da lista.`. Clear `itemBusy` once `act` settles.
+      6. When `cart.error` is set: `<p className="az-acct-error" role="alert">{cart.error}</p>`.
+  notes: |
+    The quotes in the item and delete texts are the typographic “ and ”.
+
+sf.features.account.security-settings.SecuritySettings:
+  description: |
+    "Acesso e segurança": rows for name, e-mail and password, each with "Editar" opening an inline form that saves through `accountClient`.
+    Hooks: `useRouter()`. State: `profile` (from `user`), `editing: Field | null`, `status`. A ref keeps the Editar button of
+    each field.
+    `close(field, message = '')`: clear `editing`, set `status = message`, and focus that field's Editar button in
+    `requestAnimationFrame`.
+
+    Markup:
+    - `<div className="az-acct-status" role="status" aria-live="polite">`, containing `<p className="az-acct-success">{status}</p>`
+      when `status` is set.
+    - `<ul className="az-acct-rows">` with three rows, in order: name, email, password. Each row is
+      `<li className="az-acct-row">`:
+      - `<div className="az-acct-row__summary">`, holding a `<div>` with `<h2 className="az-acct-row__label" id="security-{field}">{label}</h2>`
+        and `<p className="az-acct-row__value">{value}</p>`.
+      - While the row is not open, the summary also holds `<button type="button" className="az-acct-button"
+        aria-describedby="security-{field}" disabled={editing !== null}>Editar</button>` (no aria-label). Clicking clears
+        `status` and sets `editing`.
+      - When open: the row's form below the summary.
+    - Row `name`: label `Nome`, value `profile.displayName`. The form saves with
+      `updateName(displayName.trim())`, then `setProfile(updated)`, `close('name', 'Seu nome foi atualizado.')` and
+      `router.refresh()`.
+    - Row `email`: label `E-mail`, value `profile.email`. The form saves with `changeEmail(email.trim(), currentPassword)`, then
+      `setProfile` and `close('email', 'Seu e-mail foi atualizado. Use-o no próximo login.')`.
+    - Row `password`: label `Senha`, value `<span aria-label="Senha oculta">********</span>`. The form saves with
+      `changePassword(currentPassword, newPassword)`, then closes with a message that depends on `n = revokedSessions`:
+      - n = 0: `Sua senha foi alterada.`
+      - n = 1: `Sua senha foi alterada. 1 outra sessão foi encerrada.`
+      - n > 1: `Sua senha foi alterada. {n} outras sessões foram encerradas.`
+    For every form, Cancelar calls `close(field)`, and a 401 calls `router.push('/login?next=%2Fsecurity')`.
+
+    Form (private `EditForm` component). It has its own `saving` and `error` state, and on mount focuses its first input.
+    - Renders `<form className="az-acct-form" aria-label={label}>`, containing:
+      - `<p className="az-acct-error" role="alert">` when there is an error.
+      - `<p className="az-acct-form__hint">` when there is a hint.
+      - One `<label>{field.label}<input name type autoComplete defaultValue minLength maxLength required disabled={saving} /></label>`
+        per field.
+      - `<div className="az-acct-form__actions">` with a submit button `az-acct-button az-acct-button--primary` (text
+        `Salvando…` while saving, else `Salvar alterações`) and an `az-acct-button` `Cancelar`. Both are disabled while saving.
+    - On submit, in order:
+      1. `preventDefault`. Read every field from `FormData` as a string.
+      2. Run the optional validate; set `error` to its result and stop if it is non-empty.
+      3. Set `saving` and await the row's save.
+      - An `AccountRequestError` with status 401 calls the unauthorized handler. Any other error, including a 403 for a
+        wrong current password, shows its `message` (non-Error: `Não foi possível salvar.`).
+      - Always clear `saving` at the end.
+
+    The three forms:
+    - `Alterar seu nome`: field `displayName`, label `Novo nome`, type text, autoComplete `name`,
+      `defaultValue={profile.displayName}`, min/max `DISPLAY_NAME_MIN_LENGTH`/`DISPLAY_NAME_MAX_LENGTH`.
+    - `Alterar seu e-mail`, with hint `Por segurança, confirme sua senha atual. As outras sessões conectadas à sua conta serão encerradas; esta continua ativa.`
+      Fields:
+      - `email`: `Novo e-mail`, type email, autoComplete `email`, maxLength 254.
+      - `currentPassword`: `Senha atual`, type password, autoComplete `current-password`, maxLength `PASSWORD_MAX_LENGTH`.
+    - `Alterar sua senha`, with hint `A nova senha deve ter pelo menos {PASSWORD_MIN_LENGTH} caracteres. As outras sessões conectadas à sua conta serão encerradas; esta continua ativa.`
+      Fields:
+      - `currentPassword` (`Senha atual`, as above).
+      - `newPassword`: `Nova senha`, type password, autoComplete `new-password`.
+      - `confirmPassword`: `Digite a nova senha novamente`, type password, autoComplete `new-password`.
+      Both new-password fields use min `PASSWORD_MIN_LENGTH` and max `PASSWORD_MAX_LENGTH`.
+      Validation: when the new and confirm values differ, `As novas senhas não coincidem.`; when the new password equals the
+      current one, `A nova senha deve ser diferente da senha atual.`; otherwise no error. No request is made when validation fails.
+
+sf.features.auth.auth-client.AuthRequestError:
+  description: |
+    Error thrown by `authClient`, carrying the API error code and a field-to-message map of validation errors.
+    The constructor calls `super(message)` and sets `this.name = 'AuthRequestError'`. `code` and `fieldErrors` are public
+    readonly properties; `fieldErrors` defaults to `{}`.
+
+sf.features.auth.auth-client.authClient:
+  description: |
+    Browser client for sign-in: identify, register, login and logout, each a same-origin JSON POST under `BASE` (`/api/v1`).
+    Every method calls one private `post<T>(path, body?)` helper:
+    - `fetch(`${BASE}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'same-origin', body })`,
+      where `body` is `JSON.stringify(body)`, or undefined when no body is given. The header is always sent.
+    - If `fetch` throws, throw `new AuthRequestError('Could not reach the server. Check your connection and try again.', 'NETWORK_ERROR')`.
+    - Read `response.json()`, using `null` if parsing fails.
+    - If the response is not ok and `isApiErrorBody(payload)`, throw `new AuthRequestError(error.message, error.code, fieldErrors)`.
+      `fieldErrors` maps each `error.details` entry's `field` to its `message`, and is `{}` without details.
+    - If the response is not ok otherwise, throw `new AuthRequestError('Something went wrong. Try again.', 'UNKNOWN')`.
+    - If the response is ok, resolve the payload.
+    Methods:
+    - `identify(input)`: `/auth/identify`, resolves `IdentifyResponse` (`{ exists }`).
+    - `register(input)`: `/auth/register`, resolves `SessionResponse`.
+    - `login(input)`: `/auth/login`, resolves `SessionResponse`.
+    - `logout()`: `/auth/logout` with no body, resolves `{ success: true }`.
+  notes: |
+    These messages stay in English; the forms replace them with Portuguese where it matters.
+
+sf.features.auth.auth-form.AuthForm:
+  description: |
+    Combined e-mail/password form used by /register (`mode="register"`), with a plain login variant; on success it goes to /account.
+    Hooks: `useRouter()`. State:
+    - `email` (`initialEmail ?? ''`), `password`, `confirmPassword`, `displayName`.
+    - `pending`, `formError: string | null`, `fieldErrors: Record<string, string>`.
+    The e-mail is locked when `mode === 'register'` and `initialEmail` is truthy.
+
+    Submit, in order:
+    1. `preventDefault`. Clear `formError` and `fieldErrors`.
+    2. In register mode, if `password !== confirmPassword`, set
+       `fieldErrors = { confirmPassword: 'As senhas não coincidem.' }` and stop.
+    3. Set `pending`. Call `authClient.register({ email, password, displayName })` (register) or
+       `authClient.login({ email, password })`. Then `router.push('/account')` and `router.refresh()`.
+    - On an `AuthRequestError`, set `fieldErrors = error.fieldErrors`, and set `formError` to `error.message` only when that
+      map is empty. On any other error, `formError` is `Algo deu errado. Tente novamente.`.
+    - Always clear `pending` at the end.
+
+    Markup: `<form noValidate>`, containing, in order:
+    1. When `formError` is set: `<p className="amazon-field__error" role="alert" style={{ marginBottom: 12 }}>`.
+    2. `<div className="amazon-field">` with `<label className="amazon-field__label">E-mail</label>` (no `htmlFor`).
+       - When locked: `<div className="amazon-identity"><span>{email}</span><Link className="amazon-identity__change" href={`/login?email=${encodeURIComponent(email)}`}>Alterar</Link></div>`.
+       - Otherwise: `<input className="amazon-field__input" type="email" autoComplete="email">`, controlled, followed by its
+         field error.
+    3. Register only: a name field. `<label className="amazon-field__label" htmlFor="register-name">Seu nome</label>`, then
+       `<input id="register-name" className="amazon-field__input" placeholder="Nome e sobrenome" autoComplete="name">`, then
+       its field error.
+    4. Password field. `<label className="amazon-field__label" htmlFor="register-password">`, with the text
+       `Senha (pelo menos 12 caracteres)` (`MIN_PASSWORD_LENGTH`) in register mode, else `Senha`. Then
+       `<input id="register-password" className="amazon-field__input" type="password">`, with autoComplete `new-password`
+       (register) or `current-password`.
+    5. Register only: a confirmation field. Label `htmlFor="register-confirm-password"` with the text
+       `Insira a senha nova mais uma vez`, and `<input id="register-confirm-password" type="password" autoComplete="new-password">`
+       with class `amazon-field__input`.
+    6. `<button type="submit" className="amazon-button" disabled={pending}>`. Its text is `Criando conta…` while pending (in
+       both modes), else `Continuar` (register) or `Fazer login`.
+    7. Register only: `<p className="amazon-card__legal">` with this text:
+       `Ao criar uma conta, você concorda com as <Link href="/conditions-of-use">Condições de Uso</Link> da Amazon. Por favor
+       verifique a <Link href="/privacy">Notificação de Privacidade</Link>, a <a href="#">Notificação de Cookies</a> e a
+       <a href="#">Notificação de Anúncios Baseados em Interesse</a>.`
+
+    Field errors for `email`, `displayName`, `password` and `confirmPassword`: when set, the input gets `aria-invalid="true"`,
+    and the input is followed by `<p className="amazon-field__error" role="alert">{message}</p>`.
+    A test reads this file's source text. Write the two legal links exactly as `<Link href="/conditions-of-use">Condições de Uso</Link>`
+    and `<Link href="/privacy">Notificação de Privacidade</Link>`, with `href` as the only attribute and the text right after `>`.
+
+sf.features.auth.login-identifier-form.LoginIdentifierForm:
+  description: |
+    Amazon-style /login flow in one component: an identifier step, then a password step for known e-mails or a "new to Amazon" step.
+    Hooks: `useRouter()`, `useSearchParams()`. State:
+    - `step: Step` (`'identifier'`) and `email` (initially `searchParams.get('email') ?? ''`).
+    - `identifierError` and `checkingEmail`.
+    - `password`, `passwordError`, `authError`, `pending`.
+    A ref holds the password input. An effect focuses it whenever `step` becomes `'password'`.
+
+    Identifier submit, in order:
+    1. `preventDefault`. Trim the e-mail. If it is empty or fails `EMAIL_PATTERN`, set `identifierError` to
+       `Insira um número de celular ou endereço de e-mail válido.` and stop.
+    2. Store the trimmed e-mail, clear the error and set `checkingEmail`.
+    3. `const { exists } = await authClient.identify({ email: trimmed })`. Go to step `'password'` if it exists, else `'new-user'`.
+    - On any error: `Não foi possível continuar agora. Tente novamente.`.
+    - Always clear `checkingEmail` at the end.
+    Going back (`back(clearEmail)`): set step `'identifier'`, clear the e-mail only if asked, clear `password`,
+    `passwordError` and `authError`.
+
+    Password submit, in order:
+    1. `preventDefault`. If the password is empty, set `passwordError` to `Insira sua senha.` and stop.
+    2. Clear both errors and set `pending`.
+    3. `await authClient.login({ email, password })`, then `router.push(afterLogin(searchParams.get('next')))` and
+       `router.refresh()`.
+    - On error, set `authError` to:
+      - `Sua senha está incorreta.` for an `AuthRequestError` with code `AUTH_INVALID_CREDENTIALS`;
+      - the message of any other `AuthRequestError`;
+      - `Algo deu errado. Tente novamente.` for anything else.
+      Then clear the password and focus the input.
+    - Always clear `pending` at the end.
+
+    Markup is a fragment:
+    - When `authError` is set: `<div className="amazon-alert" role="alert">`, holding
+      `<svg className="amazon-alert__icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">` (a circled "!" path)
+      and `<div><p className="amazon-alert__title">Houve um problema</p><p className="amazon-alert__body">{authError}</p></div>`.
+    - `<div className="amazon-card">` with the current step.
+    - Step `identifier`:
+      - `<h1 className="amazon-card__title">Faça login ou crie uma conta</h1>`.
+      - `<form className="amazon-field" noValidate>`, containing:
+        - `<label className="amazon-field__label" htmlFor="login-identifier">Insira um número de celular ou um endereço de e-mail</label>`.
+        - `<input id="login-identifier" className="amazon-field__input" name="identifier" type="text" autoComplete="username">`.
+          With an error, it gets `aria-invalid="true"` and `aria-describedby="login-identifier-error"`. Typing updates
+          `email` and clears the error.
+        - The error `<p className="amazon-field__error" id="login-identifier-error" role="alert">`.
+        - `<button type="submit" className="amazon-button" disabled={checkingEmail}>`, with text `Verificando…` while
+          checking, else `Continuar`.
+      - `<p className="amazon-card__legal">Ao continuar, você concorda com as <Link href="/conditions-of-use">Condições de Uso</Link> e a <Link href="/privacy">Notificação de privacidade da Amazon</Link>.</p>`.
+      - `<Link className="amazon-card__help" href="/account-issues">Precisa de ajuda?</Link>`.
+    - Step `password`: `<h1 className="amazon-card__title">Fazer login</h1>`, then `<form noValidate>` containing:
+      - `<div className="amazon-identity"><span>{email}</span><button type="button" className="amazon-identity__change">Alterar</button></div>`.
+        The button calls `back(false)`.
+      - `<div className="amazon-field">`, holding `<div className="amazon-field__row">` with
+        `<label className="amazon-field__label" htmlFor="login-password">Senha</label>` and `<a href="#">Esqueci a senha</a>`.
+        Then `<input id="login-password" className="amazon-field__input" name="password" type="password" autoComplete="current-password">`,
+        with `aria-invalid="true"` and `aria-describedby="login-password-error"` when there is an error. Typing clears the error.
+        Then the error `<p className="amazon-field__error" id="login-password-error" role="alert">`.
+      - `<button type="submit" className="amazon-button" disabled={pending}>`, with text `Entrando…` while pending, else
+        `Fazer login`.
+      - `<div className="amazon-divider">Ou</div>`.
+      - `<button type="button" className="amazon-button amazon-button--secondary">Fazer login com uma chave de acesso</button>`,
+        which does nothing.
+    - Step `new-user`:
+      - `<h1 className="amazon-card__title">Parece que você é novo na Amazon</h1>`.
+      - The same identity row; its `Alterar` calls `back(false)`.
+      - `<p className="amazon-card__prose">Vamos criar uma conta usando seu e-mail</p>`.
+      - `<Link href={`/register?email=${encodeURIComponent(email)}`} className="amazon-button">Prossiga com a criação de uma conta</Link>`.
+      - `<hr className="amazon-hr" />`.
+      - `<div className="amazon-note"><p className="amazon-note__title">Já é cliente?</p><button type="button" className="amazon-identity__change">Faça login com outro e-mail ou celular</button></div>`.
+        The button calls `back(true)`.
+    Tests read this file's source text, so write these three links exactly as above:
+    - `<Link href="/conditions-of-use">Condições de Uso</Link>` and `<Link href="/privacy">Notificação de privacidade da Amazon</Link>`,
+      with `href` as the only attribute and the text right after `>`.
+    - The help link with `href="/account-issues"` as its last attribute, so that `href="/account-issues">` is followed by
+      `Precisa de ajuda?`.
+
+sf.features.auth.login-identifier-form.afterLogin:
+  description: |
+    Where to send the user after signing in: `/checkout` for the legacy `checkout` value, a same-site path, or `/account`.
+    - `next === 'checkout'`: return `/checkout`.
+    - `next` is non-empty and matches `SAME_SITE_PATH`: return `next` unchanged. `SAME_SITE_PATH` accepts only a single
+      leading `/`, and rejects whitespace, backslashes and control characters.
+    - Anything else, including `null`: return `/account`.
+  examples:
+    - 'afterLogin("/products/p6") == "/products/p6"'
+    - 'afterLogin("checkout") == "/checkout"'
+    - 'afterLogin("//evil.example") == "/account" && afterLogin("/\t/evil.example") == "/account" && afterLogin(null) == "/account"'
+
+sf.features.auth.server-session.getServerSession:
+  description: |
+    Server-side session lookup: forwards the browser's cookies to the API's `/auth/me`, and returns the session or `null`.
+    1. Read `getConfig()` and `cookieHeader = cookies().toString()` (from `next/headers`). If `cookieHeader` is empty,
+       return `null` without fetching.
+    2. Fetch `${config.api.internalBaseUrl}${config.api.publicBasePath}/auth/me` with `headers: { cookie: cookieHeader }`
+       and `cache: 'no-store'`.
+    3. If the response is not ok, return `null`. Otherwise return `await response.json()` as `SessionResponse`.
+    If fetching throws (the API is unreachable), return `null`, so the page renders signed out instead of failing.
+    Never decode the cookie locally.
+
+sf.features.auth.session-actions.SessionActions:
+  description: |
+    Navigation sign-in links for guests, or the user's name and a sign-out button; the visible texts are in English.
+    Hooks: `useRouter()` and a `pending` state.
+    - No `user`: a fragment with `<Link className="nav__link" href="/login">Sign in</Link>` and
+      `<Link className="nav__link" href="/register">Create account</Link>`.
+    - With a user: a fragment with:
+      - `<Link className="nav__link" href="/account">{user.displayName}</Link>`.
+      - `<button className="button button--quiet" disabled={pending}>`, with text `Signing out…` while pending, else
+        `Sign out`.
+      Clicking the button sets `pending`, then `await authClient.logout()`, `router.push('/')` and `router.refresh()`.
+      `pending` is cleared in a `finally`.

@@ -1,0 +1,328 @@
+# Single source of truth for what is switched on. Everything ships disabled and
+# is turned on here once implemented and tested.
+features:
+  home:
+    enabled: true
+    description: Landing page
+
+  authentication:
+    enabled: true
+    description: Register, login, logout, account shell
+
+  catalog:
+    enabled: true
+    description: Product listing, search results, category and brand pages
+
+  productDetails:
+    enabled: true
+    description: Dynamic product details with catalog data and cart integration
+
+  productReviews:
+    enabled: true
+    description: Write/edit customer reviews at /products/[id]/review (reviews API)
+
+  cart:
+    enabled: true
+    description: Persistent account cart with quantities and subtotals
+
+  checkout:
+    enabled: true
+    description: Academic checkout with saved addresses and persisted orders
+
+  orders:
+    enabled: true
+    description: Order history ("Seus pedidos") and order details
+
+  account:
+    enabled: true
+    description: Account management beyond the auth shell (profile, e-mail and password in Acesso e segurança)
+
+  browsingHistory:
+    enabled: true
+    description: Device-local browsing history flyout in the header navbar
+
+  # Footer informational pages. Each is an independent, content-only page —
+  # not part of a vertical slice — so one team member can build any one of
+  # them without touching the others.
+  about:
+    enabled: true
+    description: About Amazon
+  corporateInformation:
+    enabled: true
+    description: Corporate information
+  careers:
+    enabled: true
+    description: Careers
+  press:
+    enabled: true
+    description: Press releases
+  community:
+    enabled: true
+    description: Community
+  accessibility:
+    enabled: true
+    description: Accessibility
+  amazonScience:
+    enabled: true
+    description: Amazon Science
+  sell:
+    enabled: true
+    description: Sell on Amazon
+  brandProtection:
+    enabled: true
+    description: Brand protection and building
+  supply:
+    enabled: true
+    description: Supply to Amazon
+  publish:
+    enabled: true
+    description: Self-publish books
+  associates:
+    enabled: true
+    description: Become an associate
+  advertise:
+    enabled: true
+    description: Advertise products
+  paymentMethods:
+    enabled: true
+    description: Accepted payment methods
+  points:
+    enabled: true
+    description: Buy with points
+  creditCard:
+    enabled: true
+    description: Amazon credit card
+  shipping:
+    enabled: true
+    description: Shipping and delivery times
+  returns:
+    enabled: true
+    description: Returns and refunds
+  contentAndDevices:
+    enabled: true
+    description: Manage content and devices
+  recalls:
+    enabled: true
+    description: Product recalls and safety alerts
+  help:
+    enabled: true
+    description: Customer help center
+  privacyNotice:
+    enabled: true
+    description: Amazon privacy notice (footer and login legal links)
+  conditionsOfUse:
+    enabled: true
+    description: Amazon conditions of use (footer and login legal links)
+  accountIssues:
+    enabled: true
+    description: Account and login problems ("Precisa de ajuda?" on /login)
+
+  # Account dropdown / account hub destinations (features/account, see
+  # docs/account.md). Security, addresses and lists are backed by the API; the
+  # others are honest informational pages with empty states.
+  security:
+    enabled: true
+    description: Account access and security settings
+  addresses:
+    enabled: true
+    description: Saved addresses
+  giftCards:
+    enabled: true
+    description: Gift cards
+  refunds:
+    enabled: true
+    description: Boleto/Pix refunds
+  messages:
+    enabled: true
+    description: Buyer/seller messages
+  lists:
+    enabled: true
+    description: Shopping and wish lists
+  prime:
+    enabled: true
+    description: Prime membership
+  subscriptions:
+    enabled: true
+    description: Digital subscriptions
+  subscribeAndSave:
+    enabled: true
+    description: Subscribe & Save recurring deliveries
+
+# Route -> feature binding. `disabledBehavior` decides what a visitor sees when
+# the backing feature is off.
+routes:
+  home:
+    feature: home
+    disabledBehavior: not-found
+
+  login:
+    feature: authentication
+    disabledBehavior: coming-soon
+
+  register:
+    feature: authentication
+    disabledBehavior: coming-soon
+
+  products:
+    feature: catalog
+    disabledBehavior: coming-soon
+
+  productDetails:
+    feature: productDetails
+    disabledBehavior: coming-soon
+
+  productReviews:
+    feature: productReviews
+    disabledBehavior: coming-soon
+
+  cart:
+    feature: cart
+    disabledBehavior: coming-soon
+
+  checkout:
+    feature: checkout
+    disabledBehavior: not-found
+
+  orders:
+    feature: orders
+    disabledBehavior: coming-soon
+
+  orderDetails:
+    feature: orders
+    disabledBehavior: coming-soon
+
+  account:
+    feature: account
+    disabledBehavior: coming-soon
+
+  about:
+    feature: about
+    disabledBehavior: coming-soon
+
+  corporateInformation:
+    feature: corporateInformation
+    disabledBehavior: coming-soon
+
+  careers:
+    feature: careers
+    disabledBehavior: coming-soon
+
+  press:
+    feature: press
+    disabledBehavior: coming-soon
+
+  community:
+    feature: community
+    disabledBehavior: coming-soon
+
+  accessibility:
+    feature: accessibility
+    disabledBehavior: coming-soon
+
+  amazonScience:
+    feature: amazonScience
+    disabledBehavior: coming-soon
+
+  sell:
+    feature: sell
+    disabledBehavior: coming-soon
+
+  brandProtection:
+    feature: brandProtection
+    disabledBehavior: coming-soon
+
+  supply:
+    feature: supply
+    disabledBehavior: coming-soon
+
+  publish:
+    feature: publish
+    disabledBehavior: coming-soon
+
+  associates:
+    feature: associates
+    disabledBehavior: coming-soon
+
+  advertise:
+    feature: advertise
+    disabledBehavior: coming-soon
+
+  paymentMethods:
+    feature: paymentMethods
+    disabledBehavior: coming-soon
+
+  points:
+    feature: points
+    disabledBehavior: coming-soon
+
+  creditCard:
+    feature: creditCard
+    disabledBehavior: coming-soon
+
+  shipping:
+    feature: shipping
+    disabledBehavior: coming-soon
+
+  returns:
+    feature: returns
+    disabledBehavior: coming-soon
+
+  contentAndDevices:
+    feature: contentAndDevices
+    disabledBehavior: coming-soon
+
+  recalls:
+    feature: recalls
+    disabledBehavior: coming-soon
+
+  help:
+    feature: help
+    disabledBehavior: coming-soon
+
+  privacyNotice:
+    feature: privacyNotice
+    disabledBehavior: coming-soon
+
+  conditionsOfUse:
+    feature: conditionsOfUse
+    disabledBehavior: coming-soon
+
+  accountIssues:
+    feature: accountIssues
+    disabledBehavior: coming-soon
+
+  security:
+    feature: security
+    disabledBehavior: coming-soon
+
+  addresses:
+    feature: addresses
+    disabledBehavior: coming-soon
+
+  giftCards:
+    feature: giftCards
+    disabledBehavior: coming-soon
+
+  refunds:
+    feature: refunds
+    disabledBehavior: coming-soon
+
+  messages:
+    feature: messages
+    disabledBehavior: coming-soon
+
+  lists:
+    feature: lists
+    disabledBehavior: coming-soon
+
+  prime:
+    feature: prime
+    disabledBehavior: coming-soon
+
+  subscriptions:
+    feature: subscriptions
+    disabledBehavior: coming-soon
+
+  subscribeAndSave:
+    feature: subscribeAndSave
+    disabledBehavior: coming-soon
