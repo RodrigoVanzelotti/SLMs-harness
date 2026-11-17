@@ -186,6 +186,25 @@ Stage 5 - Run `python -m harness validate -p <project>` and fix every error and 
 Report the budget table.
 ```
 
+## Large and TypeScript targets
+
+For a target with hundreds of units, write the mechanical part of the bundle with tools, and
+spend the planner's effort on descriptions and tests. [`projects/amazon-mvp/tools/`](../projects/amazon-mvp/README.md)
+is a worked example:
+
+1. **Extract with the compiler** (`tools/planner/extract.cjs`). Every top-level declaration becomes a unit. Private helpers used by one declaration are folded into it. Types and data constants become `provided`, and so do declarative classes such as DTOs and framework modules. `uses` and `imports` come from symbol resolution, not from guessing.
+2. **Add type context.** Types that appear in the signatures a unit will see go into its `uses`, transitively, so the model sees their fields. Each also gets an `import type` line, which has no effect at run time.
+3. **Keep the original import order.** Every unit of a file gets the same import list, so the merged header keeps CSS and polyfill imports where they were.
+4. **Split the original tests per unit.** A test whose reached units all lie in one unit's closure becomes that unit's test; mocked modules don't count. Tests in a `describe` with shared `let` state stay together. When a test exercises several sibling units of one file, an `after` edge lets it run on the last of them. Each original test file also stays whole, as a milestone.
+5. **Prove the bundle with the original code.** Before any model run:
+   - **Replay:** the mock backend answers every unit with its original code, and every unit must pass every static check with no sanitize repairs.
+   - **Equivalence:** the assembled workspace must equal the original repository: the same files, declarations, imports, directives and import order.
+   - **Pure tests:** the tests that need no installed packages are run against both trees.
+6. **Write descriptions** in separate files (`tools/planner/descriptions/*.yaml`) that the builder merges. Regenerating the contracts then never loses them.
+
+TypeScript contracts can use the `declaration` kind for constants, types and interfaces. Types
+are always `provided`. An implemented constant needs `export const NAME: Type` as its signature.
+
 ## Checklist before the first run
 
 - [ ] `validate` shows 0 errors and 0 warnings, or each remaining warning is understood.

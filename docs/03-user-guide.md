@@ -199,7 +199,19 @@ A reset unit's dependents keep their code. While the unit is rebuilt, their test
 regression tests (with `run.regression: related`). To discard a run completely, delete
 `runs/<run_name>/`.
 
-## 9. Troubleshooting
+## 9. TypeScript targets
+
+Set `language: typescript` in `spec/project.yaml`. In addition to the Python requirements:
+
+- **Node.js on `PATH`**, and the **`typescript` package**: set `HARNESS_TYPESCRIPT` to its folder, or install it in the project folder or globally. The harness parses TypeScript with it and never runs the code it parses.
+- **`tests_in_workspace: true`** when the test runner (vitest, jest) resolves imports from the test file's location. Tests then live in `tests/` with the workspace layout and are copied into the workspace.
+- **A `checks.preflight` command** that installs the workspace's dependencies, for example `pnpm install --frozen-lockfile`. It runs before the first model call, so a broken setup costs no model calls. On Windows, call `pnpm` through a Node script or a shell, because `pnpm` is a `.cmd` file there.
+- **A test command** that knows the project's runners. In a monorepo, a small wrapper script in the scaffold can group the test files by package.
+- **`requires_env`** on milestones that need a service, such as `DATABASE_URL` for a local PostgreSQL. Without the variable, the milestone waits instead of failing, and the run exits with 1.
+
+[`projects/amazon-mvp`](../projects/amazon-mvp/README.md) is a complete TypeScript bundle (NestJS + Next.js + Prisma) that uses all of this.
+
+## 10. Troubleshooting
 
 | Problem | What to do |
 |---|---|

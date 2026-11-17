@@ -89,10 +89,12 @@ until every unit is done, escalated, or blocked.
 
 ## Current status (2026-11-16)
 
-- The harness, an example project (`examples/textstats`), and a test suite (86 tests) are complete. All tests pass.
+- The harness, an example project (`examples/textstats`), and a test suite (103 tests) are complete. All tests pass.
+- Two language adapters: Python and TypeScript (added 2026-11-16 for the first real target).
+- The first real target, [github.com/Alles725/amazon](https://github.com/Alles725/amazon) (a NestJS + Next.js + Prisma monorepo), has a complete bundle in `projects/amazon-mvp` (888 units, 44 milestones). It replays the original code without errors and assembles a workspace equivalent to the original.
 - It has been through a line-by-line review and an independent review. All 32 findings are fixed and covered by tests. See [07](07-review-and-roadmap.md).
 - It has been verified with the scripted mock backend and against a fake OpenAI-compatible server. **It has not yet been run against a real SLM.** No model server was installed on the development machine.
-- **Next step:** Phase A for the target repository, once the link is shared.
+- **Next step:** install the target's dependencies and run its full replay with the real test runners (`projects/amazon-mvp/README.md`), then the first SLM runs.
 
 ## Glossary
 

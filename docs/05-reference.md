@@ -82,6 +82,7 @@ Unknown keys are rejected. Every field is optional.
 | `sanitize` | `true` | Deterministic repairs of model output |
 | `strict_annotations` | `false` | `true`: annotation mismatches fail the signature check |
 | `commands` | `[]` | Extra ladder stages (see below) |
+| `preflight` | `[]` | Commands that `run` executes once, in order, after the workspace is rebuilt and before the first model call. Examples: install dependencies, generate code, build shared packages. A failure stops the run (exit code 2) and shows the trimmed output |
 | `tests` | pytest, see below | The test command |
 
 The default `inherit_env` is:
@@ -97,7 +98,7 @@ The default `secret_env_patterns` are: `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*PA
 Every config value is type-checked; a wrong type is an error. A key left empty in YAML (only
 comments under it) means "use the default".
 
-A command check (an entry of `commands`, or `tests`) has these fields:
+A command check (an entry of `commands` or `preflight`, or `tests`) has these fields:
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -126,7 +127,8 @@ A check passes when the command exits with code 0.
 | `allowed_imports` | `[]` | Allowed third-party top-level modules |
 | `source_roots` | `[src]` | Package roots inside the workspace |
 | `packages` | derived | The project's own top-level packages (always importable). Derived from targets under `source_roots` |
-| `auto_init` | `true` | Create missing `__init__.py` files |
+| `auto_init` | `true` | Create missing `__init__.py` files (Python) |
+| `tests_in_workspace` | `false` | Copy `tests/<path>` to `<workspace>/<path>` on every scaffold, and run tests from there. Before each run, the test files are copied again, in case code under test changed them. With this on, every test path must start with `tests/`, and no test file may land on a scaffold file or a unit target. Use it for test runners that resolve imports relative to the test file, such as vitest and jest |
 | `milestones` | `[]` | A list of milestone entries (below) |
 
 A milestone entry has these fields:
@@ -137,6 +139,7 @@ A milestone entry has these fields:
 | `after` | no | Units that must be finished, together with everything they depend on |
 | `tests` | yes | Integration test paths, relative to the project |
 | `description` | no | For people |
+| `requires_env` | no | Variables the tests need, for example `DATABASE_URL`. If one is missing from the check environment (after `inherit_env` and `checks.env`), the milestone is not run. It stays pending, is logged as `milestone_skipped`, and `run` exits with 1 |
 
 ## Contracts (`spec/contracts/**`)
 
@@ -156,10 +159,10 @@ only by case are an error.
 | Field | Required | Meaning |
 |---|---|---|
 | `id` | yes | Unique. Letters, digits, `.`, `_`, `-` |
-| `target` | yes | `path/file.py::name` (function or class), or a plain path (whole file). Relative to the workspace |
-| `kind` | no | `function`, `class`, or `file`. Inferred from `target` and `signature` |
+| `target` | yes | `path/file.py::name` (function, class or declaration), or a plain path (whole file). Relative to the workspace |
+| `kind` | no | `function`, `class`, `declaration` (a constant, type, interface or enum), or `file`. Inferred from `target` and `signature` |
 | `type` | no | `implement` (default), `integrate`, or `provided` (implied by `code`) |
-| `signature` | function, class | `def` line, or a class skeleton with `...` bodies |
+| `signature` | function, class, declaration | Python: a `def` line, a class skeleton with `...` bodies, or `NAME: type`. TypeScript: a function head without a body, a class with body-less members, `export const NAME: Type`, or a full `interface`/`type` |
 | `description` | yes, unless provided | Behavior and edge cases. The first sentence is the summary shown to dependents |
 | `uses` | no | Units shown in the prompt as signature + summary. They are built first |
 | `after` | no | Built first, but not shown |
@@ -257,6 +260,8 @@ Each line is one JSON object with `ts` (UTC) and `event`.
 | `unit_repaired` / `repair_failed` | `unit`, `milestone`, and `attempts`, `samples` or `stage`, `reason` |
 | `milestone` | `milestone`, `ok` |
 | `milestone_escalated` | `milestone`, `reason` |
+| `milestone_skipped` | `milestone`, `missing_env`. Logged once per run |
+| `preflight` | `ok`, `failed` (the failing command's name, or null) |
 | `unit_stale` | `unit`. The contract changed |
 | `unit_retry_tests_changed` | `unit`. An escalated unit's tests changed |
 | `unit_reverified` | `unit`, `ok`. A finished unit's tests changed |
@@ -277,3 +282,23 @@ Each line is one JSON object with `ts` (UTC) and `event`.
 - The trimmed error (`## error`).
 
 Rounds increase after resets and for repairs, so files are never overwritten.
+
+## Language adapters
+
+`language` in `project.yaml` selects the adapter. The adapter decides how signatures are
+read, how stubs look, and which deterministic repairs and static checks run.
+
+| | Python | TypeScript |
+|---|---|---|
+| Parser | `ast` (in process) | The TypeScript compiler, in a Node.js helper (`harness/lang/ts_helper.cjs`) that runs for the whole harness process. It only parses; it never runs code |
+| Requires | – | Node.js on `PATH`, and the `typescript` package. It is found through `HARNESS_TYPESCRIPT` (a path; if set, it must work), then the project folder's `node_modules`, then the global npm folder |
+| Region markers | `# >>> unit: id` | `// >>> unit: id` |
+| File header | `from __future__ import annotations`, then the merged imports | Directives (`'use client'`), then the imports merged per module (a name stays type-only only if every line imports it as a type), then `export ... from` lines. `imports` entries may be imports, `export ... from` lines, local `export { name }` lists, or a directive |
+| Stubs | `raise NotImplementedError("HARNESS_STUB id")` | Function and method bodies `throw new Error("HARNESS_STUB id")`. A constant gets a Proxy that throws on first use |
+| Kinds | `function`, `class`, `file`; `declaration` only as `provided` | `function` (a function declaration, or a `const` arrow function), `class`, `declaration` (`provided` for types and interfaces; implemented constants need `export const NAME: Type`), `file` |
+| Sanitize removes | `from __future__` imports, `__main__` blocks, top-level expressions and asserts, redefinitions | Directives, top-level expressions such as `console.log(...)`, imports of names the header already has (rewritten when partly new), redefinitions, and `export { target }` or `export default target` when the target is already exported |
+| Signature check | Parameters, defaults, `async`, decorators, base classes, fields, methods | Export and default export, `async`, generators, parameters (names, optional, defaults, rest), class decorators, `extends`, members (static, parameter properties, method and parameter decorators). Types are soft unless `strict_annotations` |
+| Import policy | Top-level module names; the standard library | Package names (`@scope/pkg`) or patterns (`@nestjs/*`); prefixes ending in `/` (such as `@/`); `node:` modules and Node.js built-ins as the standard library; relative imports always allowed |
+| Stack frames for milestone blame | Python tracebacks | `at ... (file:line:col)`, vitest `❯ file:line:col`, and `file(line,col)` from `tsc` |
+| Check environment | `PYTHONPATH`, `PYTHONDONTWRITEBYTECODE`, `PYTHONIOENCODING` | `FORCE_COLOR=0`, `NO_COLOR=1`, `CI=1` |
+

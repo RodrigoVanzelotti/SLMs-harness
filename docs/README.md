@@ -14,6 +14,9 @@ decomposes the work first and a deterministic harness manages the rest.
 | [06 – Research guide](06-research.md) | Design experiments, compare models, run ablations, and read the metrics |
 | [07 – Review and roadmap](07-review-and-roadmap.md) | See what the code review found and fixed, known limits, and the improvement backlog |
 
+Target bundles live in `projects/`, separate from the harness. The first is
+[`projects/amazon-mvp`](../projects/amazon-mvp/README.md), a TypeScript monorepo.
+
 ## Suggested reading order
 
 - **New to the project:** 01 → 03 (quick start) → 02.
@@ -24,7 +27,7 @@ decomposes the work first and a deterministic harness manages the rest.
 ## The project in one paragraph
 
 A **planner** (a large model or a person) reads the target repository once. It writes a
-**spec bundle**: one contract per unit (a function, a class, or a file), tests that act as the
+**spec bundle**: one contract per unit (a function, a class, another declaration, or a file), tests that act as the
 judge, and milestones (integration tests). The **orchestrator** in `harness/` is plain Python
 with no model inside. It orders the units by dependency and gives the SLM one small prompt per
 unit. It checks every answer with a ladder of checks that ends in the unit's tests, then pastes

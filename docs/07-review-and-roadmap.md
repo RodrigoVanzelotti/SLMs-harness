@@ -72,6 +72,37 @@ The reviewer also confirmed these as working correctly:
 - Atomic state writes.
 - Thread safety of parallel sampling.
 
+## Changes for the first real target (TypeScript, 2026-11-16)
+
+The first target, [github.com/Alles725/amazon](https://github.com/Alles725/amazon), is a
+TypeScript monorepo, so the harness needed a second adapter. These changes are general; none of
+them is specific to that project.
+
+| Change | Why |
+|---|---|
+| `TypeScriptAdapter` with a Node.js helper around the TypeScript compiler | Parsing TypeScript correctly (generics, JSX, decorators) needs the real parser. One long-lived process keeps each call around a millisecond |
+| Unit kind `declaration` | TypeScript projects are full of exported constants, types and interfaces that are neither functions nor classes |
+| `tests_in_workspace` | vitest and jest resolve imports from the test file's location, so the tests must sit inside the workspace. They are copied again before every run, so code under test cannot change its own judge |
+| `checks.preflight` | Replaces the Python import check for other languages: install and build before the first model call, and fail with the output instead of burning attempts |
+| Milestone `requires_env` | Integration suites that need a database should wait, not fail and trigger repairs of correct code |
+| Header merge per module, directives first, original order kept | Two units importing from one module must not bind a name twice, and CSS or polyfill imports must keep their place |
+| `validate` asks the adapter for type names and type-only declarations | Without this, names inside decorators and constructor parameters flooded the prompt-context warnings |
+
+**Tests added:** 17, covering the following. 103 tests pass in total.
+
+- Stubs and contracts.
+- Header merging.
+- Every sanitize repair.
+- Function, class and declaration signature checks.
+- The import policy and stack-frame parsing.
+- A TypeScript project end to end, run with Node's own type stripping:
+  - A retry with feedback.
+  - Sanitizing.
+  - A milestone.
+  - Preflight success and failure.
+  - `requires_env`.
+  - A spec problem from an undeclared stub.
+
 ## Practices the code follows
 
 - **Deterministic control, probabilistic workers.** All decisions are made by code with fixed rules. The model only proposes text.
@@ -82,7 +113,7 @@ The reviewer also confirmed these as working correctly:
 - **Strict input checking.** Unknown keys are rejected, and values are type- and range-checked, so typos fail loudly instead of being ignored.
 - **Observability.** Every prompt, reply, verdict, and setting is recorded, including samples that were paid for but not needed.
 - **Small surface.** One runtime dependency (PyYAML). The standard library is used for HTTP, hashing, threads, and subprocesses.
-- **Language isolation.** Everything Python-specific sits behind one adapter protocol.
+- **Language isolation.** Everything language-specific sits behind one adapter protocol (Python and TypeScript).
 - **Tested behavior.** End-to-end tests drive real runs through the mock backend. The HTTP client is tested against a local fake server. Key fixes were checked by undoing them and confirming that their tests fail.
 
 ## Known limits
@@ -90,7 +121,9 @@ The reviewer also confirmed these as working correctly:
 | Limit | Effect | Notes |
 |---|---|---|
 | Not yet run against a real SLM | Behavior with real model output is unverified | Verified only with scripted replies and a fake server |
-| Python only | Other target languages need an adapter | The rest of the harness doesn't depend on the language |
+| Two languages | Python and TypeScript have adapters; others need one | The rest of the harness doesn't depend on the language |
+| TypeScript signatures are compared as text | Two equivalent types written differently (`Array<T>` and `T[]`) count as a mismatch | Type mismatches are warnings unless `strict_annotations`. Decorators, parameters, exports and members are compared structurally |
+| No in-process import check for TypeScript | A broken scaffold is only caught by the first tests | Use `checks.preflight` to install and load the workspace |
 | One unit at a time | Wall time grows linearly with the number of units | Samples within an attempt can run in parallel |
 | Not a sandbox | Model-written code runs as your user and can read your files and use the network | The environment is allowlisted. Use a container or VM for untrusted models |
 | Token counts are estimated for budgets | A unit can exceed the real window if text tokenizes poorly | Real counts are logged when the server reports them; calibrate `chars_per_token` |
@@ -125,5 +158,8 @@ The reviewer also confirmed these as working correctly:
 
 11. **`show UNIT` command:** accepted code, last error, attempt history, and dependents in one view.
 12. **HTML report** across runs, with charts of pass rate, cost, and failure stages.
-13. **More language adapters** (for example TypeScript), following the `LanguageAdapter` protocol.
+13. **More language adapters** (Go, Java), following the `LanguageAdapter` protocol. TypeScript is done.
 14. **Unit-split suggestions:** when a unit escalates at `tests` with varying errors, point the planner at it as a likely candidate for splitting.
+15. **Semantic TypeScript signature checks:** compare types with the type checker instead of as text.
+16. **Generic planner tooling:** move the extract, split and replay tools of `projects/amazon-mvp/tools/` into the harness, configurable per repository.
+17. **Per-unit database tests:** services in database-backed projects are verified only by integration milestones today. Per-service tests against a disposable database would give each one its own oracle.

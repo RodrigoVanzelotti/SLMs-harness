@@ -18,12 +18,14 @@
 | `harness/state.py` | `status.json`, `log.jsonl`, `escalations.md`, `accepted/`, the run lock | `RunState` |
 | `harness/report.py` | Research metrics | `summarize`, `render`, `render_table` |
 | `harness/init_project.py` | Creates a project skeleton | `init_project` |
-| `harness/lang/` | Everything specific to one programming language | `LanguageAdapter` protocol, `PythonAdapter`, `get_adapter` |
+| `harness/lang/` | Everything specific to one programming language | `LanguageAdapter` protocol, `PythonAdapter`, `TypeScriptAdapter`, `get_adapter` |
+| `harness/lang/ts_helper.cjs` | The TypeScript compiler behind the TypeScript adapter, in one long-lived Node.js process (JSON lines on stdin and stdout). It only parses | ops `analyze`, `stub`, `typeNames` |
 | `harness/templates/` | Default prompt templates | `system.md`, `implement.md`, `integrate.md`, `fix.md` |
 | `harness/skeleton/` | Files `init` copies into a new project | `harness.yaml`, `project.yaml`, `conventions.md`, `gitignore` |
 
 The only dependency is PyYAML. Python 3.11+ is required. pytest is what the default test
-command uses to run the target project's tests.
+command uses to run the target project's tests. TypeScript targets also need Node.js and the
+`typescript` package (see the [reference](05-reference.md#language-adapters)).
 
 ## Data flow
 
@@ -226,6 +228,8 @@ def compute_stats(text: str, top_n: int = 3) -> Stats:
 - Regions appear in dependency order inside each file.
 - A `file` unit owns its whole file, with no markers.
 - Files under `spec/scaffold/` are copied verbatim. Missing `__init__.py` files are created when `auto_init` is on.
+- With `tests_in_workspace`, the project's `tests/` tree is copied in too (`tests/a/b.spec.ts` becomes `a/b.spec.ts`). Each test file is copied again before it runs.
+- In TypeScript files the markers are `// >>> ...`. The header holds the directives (`'use client'`), the imports merged per module, and `export ... from` lines. A stub throws `new Error("HARNESS_STUB <id>")`.
 - Marker-looking lines in model output are dropped, so a reply cannot corrupt the region structure.
 - **The workspace is a derived artifact.** It is a pure function of spec + `state/accepted/`, so deleting it loses nothing. The next `scaffold` or `run` recreates it.
 
@@ -262,8 +266,10 @@ credentials, no access to your home folder, and no network beyond the model serv
 
 - **Prompt templates:** override any of `system.md`, `implement.md`, `integrate.md`, `fix.md` in `prompts/templates/`. The variables are listed in the [reference](05-reference.md#prompt-template-variables).
 - **Extra checks:** `checks.commands` in the run config (linters, type checkers). Each one becomes a ladder stage named after the check.
-- **Another language:** implement the `LanguageAdapter` protocol (`harness/lang/__init__.py`) and register it in `_ADAPTERS`. The orchestrator, state, prompts, DAG, and region splicing don't depend on the language. The adapter supplies:
+- **Preflight:** `checks.preflight` commands run once per `run`, before any model call (dependency installs, code generation). For languages without an in-process import check, this is how a broken scaffold is caught early.
+- **Another language:** implement the `LanguageAdapter` protocol (`harness/lang/__init__.py`) and register it in `_ADAPTERS`. Python and TypeScript exist. The orchestrator, state, prompts, DAG, and region splicing don't depend on the language. The adapter supplies:
   - Signature parsing, stub rendering, and the file header.
   - The syntax check, sanitizing, the signature check, and defined names.
   - The import policy, traceback location, and package init files.
   - The environment for checks.
+  - Optional hooks: `header_problems` (conflicting merged imports), `type_names` and `is_type_only` (sharper prompt-context warnings in `validate`).
